@@ -2,7 +2,10 @@
   "name": "ofd-keychain",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@10.6.5",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
@@ -13,7 +16,7 @@
     "format:write": "prettier --write ."
   },
   "devDependencies": {
-    "pnpm": "^10.6.5",
+    "pnpm": "9.15.9",
     "prettier": "^3.4.2",
     "turbo": "^2.5.0",
     "typescript": "^5.8.2"
