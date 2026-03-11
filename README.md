@@ -26,6 +26,10 @@ corepack pnpm build
 corepack pnpm test
 ```
 
+## Vercel
+
+Set the Vercel project `Root Directory` to `apps/web`. The Next.js app lives there, and Vercel will not detect `next` correctly if the project points at the monorepo root.
+
 ## Environment
 
 Copy `apps/web/.env.example` to `apps/web/.env.local` and fill in storage/database keys before running publish or worker flows.
