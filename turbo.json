@@ -5,10 +5,15 @@
       "dependsOn": [
         "^build"
       ],
+      "outputs": []
+    },
+    "@ofd-keychain/web#build": {
+      "dependsOn": [
+        "^build"
+      ],
       "outputs": [
         ".next/**",
-        "dist/**",
-        "coverage/**"
+        "!.next/cache/**"
       ]
     },
     "dev": {
