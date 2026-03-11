@@ -1,0 +1,13 @@
+.DS_Store
+.next
+.local-data
+.playwright-cli
+.turbo
+coverage
+dist
+node_modules
+output
+pnpm-lock.yaml
+apps/web/.env.local
+apps/web/.vercel
+apps/web/prisma/dev.db

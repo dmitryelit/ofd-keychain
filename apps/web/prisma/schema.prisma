@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id                      String         @id @default(cuid())
+  slug                    String         @unique
+  title                   String
+  status                  String
+  coverAssetId            String?
+  publishedSceneVersionId String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  sceneVersions           SceneVersion[]
+  renderJobs              RenderJob[]
+}
+
+model SceneVersion {
+  id        String   @id @default(cuid())
+  projectId String
+  sceneJson Json
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model RenderJob {
+  id             String   @id @default(cuid())
+  projectId      String
+  status         String
+  output         String
+  fps            Int
+  durationMs     Int
+  resultUrl      String?
+  payloadJson    Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
