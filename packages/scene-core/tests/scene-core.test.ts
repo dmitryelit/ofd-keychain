@@ -15,6 +15,8 @@ describe("scene-core", () => {
     expect(parsed.meta.projectId).toBe("project-1");
     expect(parsed.objects).toHaveLength(1);
     expect(parsed.timeline.tracks).toHaveLength(1);
+    expect(parsed.viewport.background.topColor).toBe("#060606");
+    expect(parsed.materials[0]?.opacity).toBe(1);
   });
 
   it("evaluates deterministic timeline values", () => {
@@ -38,5 +40,60 @@ describe("scene-core", () => {
     expect(history.snapshot().value).toBe(1);
     history.redo();
     expect(history.snapshot().value).toBe(2);
+  });
+
+  it("migrates legacy background and material fields", () => {
+    const parsed = parseSceneDocument({
+      sceneVersion: 1,
+      meta: {
+        projectId: "legacy-project",
+        title: "Legacy scene",
+        updatedAt: new Date().toISOString()
+      },
+      viewport: {
+        background: "#ff00ff",
+        exposure: 1,
+        shadows: true
+      },
+      assets: [],
+      materials: [
+        {
+          id: "legacy-material",
+          name: "Legacy material",
+          type: "metal",
+          color: "#ffffff",
+          roughness: 0.4,
+          metalness: 0.8,
+          clearcoat: 0.1,
+          emissive: "#000000",
+          normalScale: 1
+        }
+      ],
+      objects: [],
+      lights: [],
+      cameraRig: {
+        mode: "orbit",
+        position: [0, 0, 12],
+        target: [0, 0, 0],
+        fov: 35,
+        autoRotate: false,
+        autoRotateSpeed: 1
+      },
+      timeline: {
+        durationMs: 1000,
+        fps: 30,
+        loop: true,
+        tracks: [],
+        markers: []
+      }
+    });
+
+    expect(parsed.sceneVersion).toBe(2);
+    expect(parsed.viewport.background).toEqual({
+      topColor: "#ff00ff",
+      bottomColor: "#ff00ff"
+    });
+    expect(parsed.materials[0]?.opacity).toBe(1);
+    expect(parsed.materials[0]?.maps.metalness).toBeUndefined();
   });
 });

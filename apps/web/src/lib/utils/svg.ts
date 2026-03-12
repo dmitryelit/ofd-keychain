@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 const svgPayloadSchema = z.object({
-  markup: z.string().min(1)
+  markup: z.string().min(1),
+  id: z.string().optional(),
+  name: z.string().min(1).optional()
 });
 
 export interface NormalizedSvgAssetPayload {
@@ -17,7 +19,7 @@ export interface NormalizedSvgAssetPayload {
 const VIEWBOX_REGEX = /viewBox=["']([\d.\s-]+)["']/i;
 
 export function normalizeSvgMarkup(input: unknown): NormalizedSvgAssetPayload {
-  const { markup } = svgPayloadSchema.parse(input);
+  const { markup, id, name } = svgPayloadSchema.parse(input);
   const normalized = markup.replace(/\r\n/g, "\n").trim();
 
   if (!normalized.startsWith("<svg")) {
@@ -30,8 +32,8 @@ export function normalizeSvgMarkup(input: unknown): NormalizedSvgAssetPayload {
   const height = Number.isFinite(values[3]) && values[3] > 0 ? values[3] : 80;
 
   return {
-    id: crypto.randomUUID(),
-    name: "Uploaded shape",
+    id: id ?? crypto.randomUUID(),
+    name: name ?? "Uploaded shape",
     normalizedSvgMarkup: normalized,
     viewBox: {
       width,

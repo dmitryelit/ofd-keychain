@@ -1,6 +1,7 @@
 import { KeychainCanvas } from "@ofd-keychain/render-engine";
 import { notFound } from "next/navigation";
 import { getProjectRepository } from "@/lib/server/project-repository";
+import { createStageBackgroundStyle } from "@/lib/utils/background";
 
 export default async function SharePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -12,7 +13,11 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
   }
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-black text-white">
+    <main
+      className="relative h-screen w-screen overflow-hidden text-white"
+      style={createStageBackgroundStyle(project.scene.viewport.background.topColor, project.scene.viewport.background.bottomColor)}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(0,0,0,0.95),transparent_58%)]" />
       <KeychainCanvas scene={project.scene} readOnly autoplayTimeline className="h-screen w-screen" />
       <aside className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-between gap-3 sm:inset-x-5 sm:top-5">
         <div className="pointer-events-auto max-w-md rounded-[28px] border border-white/10 bg-black/45 px-4 py-3 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">

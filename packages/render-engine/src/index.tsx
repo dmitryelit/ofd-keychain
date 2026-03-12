@@ -12,8 +12,13 @@ import {
   Mesh,
   MeshPhysicalMaterial,
   Object3D,
+  Path,
+  RepeatWrapping,
+  SRGBColorSpace,
   Shape,
+  TextureLoader,
   Vector3,
+  Vector2,
   type DirectionalLight as ThreeDirectionalLight,
   type PerspectiveCamera,
   type ShapePath,
@@ -27,6 +32,7 @@ export interface ExtrudeOptions {
   bevelSegments: number;
   bevelSize: number;
   bevelThickness: number;
+  ringHoleRadius: number;
 }
 
 export function createMaterial(material: MaterialDefinition) {
@@ -35,15 +41,84 @@ export function createMaterial(material: MaterialDefinition) {
     roughness: material.roughness,
     metalness: material.metalness,
     clearcoat: material.clearcoat,
+    opacity: material.opacity,
+    transparent: material.opacity < 1,
     emissive: new Color(material.emissive),
     reflectivity: MathUtils.clamp(0.5 + material.clearcoat * 0.5, 0, 1)
   });
 }
 
+function applyTextureTransform(texture: any, definition: { tiling: [number, number]; offset: [number, number]; rotation: number }) {
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  texture.repeat.set(...definition.tiling);
+  texture.offset.set(...definition.offset);
+  texture.rotation = definition.rotation;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+const textureCache = new Map<string, Promise<any>>();
+
+function loadTexture(url: string) {
+  if (!textureCache.has(url)) {
+    const loader = new TextureLoader();
+    textureCache.set(
+      url,
+      new Promise((resolve, reject) => {
+        loader.load(url, resolve, undefined, reject);
+      })
+    );
+  }
+
+  return textureCache.get(url)!;
+}
+
+function appendRingHole(shapes: Shape[], asset: ShapeAsset, ringHoleRadius: number) {
+  if (!shapes[0] || ringHoleRadius <= 0) {
+    return shapes;
+  }
+
+  const contourPoints = shapes[0].extractPoints(48).shape;
+
+  if (contourPoints.length === 0) {
+    return shapes;
+  }
+
+  const bounds = contourPoints.reduce(
+    (accumulator, point) => ({
+      minX: Math.min(accumulator.minX, point.x),
+      maxX: Math.max(accumulator.maxX, point.x),
+      minY: Math.min(accumulator.minY, point.y),
+      maxY: Math.max(accumulator.maxY, point.y)
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
+  );
+
+  const width = asset.viewBox.width || bounds.maxX - bounds.minX || 1;
+  const height = asset.viewBox.height || bounds.maxY - bounds.minY || 1;
+  const radius = Math.max(0.8, ringHoleRadius * 3.2);
+  const holeCenterX = bounds.minX + width * 0.5;
+  const holeCenterY = bounds.minY + height * 0.18;
+  const holePath = new Path();
+  holePath.absellipse(holeCenterX, holeCenterY, radius, radius, 0, Math.PI * 2, false, 0);
+  shapes[0].holes = [holePath];
+  return shapes;
+}
+
 export function createExtrudedGeometry(asset: ShapeAsset, options: ExtrudeOptions) {
   const loader = new SVGLoader();
   const data = loader.parse(asset.normalizedSvgMarkup);
-  const shapes = data.paths.flatMap((path: ShapePath) => SVGLoader.createShapes(path));
+  const shapes = appendRingHole(
+    data.paths.flatMap((path: ShapePath) => SVGLoader.createShapes(path)),
+    asset,
+    options.ringHoleRadius
+  );
   const geometry = new ExtrudeGeometry(shapes, {
     ...options,
     curveSegments: 24,
@@ -163,7 +238,8 @@ function KeychainMesh({
       bevelEnabled: keychainObject.params.bevelEnabled,
       bevelSegments: keychainObject.params.bevelSegments,
       bevelSize: keychainObject.params.bevelSize,
-      bevelThickness: keychainObject.params.bevelThickness
+      bevelThickness: keychainObject.params.bevelThickness,
+      ringHoleRadius: keychainObject.params.ringHoleRadius
     });
   }, [asset, keychainObject]);
 
@@ -174,6 +250,71 @@ function KeychainMesh({
 
     return createMaterial(materialDefinition);
   }, [materialDefinition]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const nextMaterial = material as MeshPhysicalMaterial;
+
+    nextMaterial.color.set(materialDefinition?.color ?? "#d4d4d8");
+    nextMaterial.roughness = materialDefinition?.roughness ?? 0.35;
+    nextMaterial.metalness = materialDefinition?.metalness ?? 0.6;
+    nextMaterial.clearcoat = materialDefinition?.clearcoat ?? 0;
+    nextMaterial.opacity = materialDefinition?.opacity ?? 1;
+    nextMaterial.transparent = (materialDefinition?.opacity ?? 1) < 1;
+    nextMaterial.emissive.set(materialDefinition?.emissive ?? "#000000");
+    nextMaterial.normalScale = new Vector2(
+      materialDefinition?.normalScale ?? 1,
+      materialDefinition?.normalScale ?? 1
+    );
+    nextMaterial.map = null;
+    nextMaterial.normalMap = null;
+    nextMaterial.roughnessMap = null;
+    nextMaterial.metalnessMap = null;
+
+    const maps = materialDefinition?.maps ?? {};
+    const loads = [
+      maps.baseColor
+        ? loadTexture(maps.baseColor.url).then((texture) => {
+            texture.colorSpace = SRGBColorSpace;
+            nextMaterial.map = applyTextureTransform(texture, maps.baseColor!);
+          })
+        : Promise.resolve(),
+      maps.normal
+        ? loadTexture(maps.normal.url).then((texture) => {
+            nextMaterial.normalMap = applyTextureTransform(texture, maps.normal!);
+          })
+        : Promise.resolve(),
+      maps.roughness
+        ? loadTexture(maps.roughness.url).then((texture) => {
+            nextMaterial.roughnessMap = applyTextureTransform(texture, maps.roughness!);
+          })
+        : Promise.resolve(),
+      maps.metalness
+        ? loadTexture(maps.metalness.url).then((texture) => {
+            nextMaterial.metalnessMap = applyTextureTransform(texture, maps.metalness!);
+          })
+        : Promise.resolve()
+    ];
+
+    void Promise.all(loads)
+      .catch(() => {
+        if (!cancelled) {
+          nextMaterial.map = null;
+          nextMaterial.normalMap = null;
+          nextMaterial.roughnessMap = null;
+          nextMaterial.metalnessMap = null;
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          nextMaterial.needsUpdate = true;
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [material, materialDefinition]);
 
   useEffect(() => {
     return () => {
@@ -346,10 +487,9 @@ export function KeychainCanvas({
         camera={{ position: scene.cameraRig.position, fov: scene.cameraRig.fov }}
         dpr={[1, 1.75]}
         shadows
-        gl={{ antialias: true }}
+        gl={{ antialias: true, alpha: true }}
       >
-        <color attach="background" args={[scene.viewport.background]} />
-        <fog attach="fog" args={["#d6d3d1", 18, 30]} />
+        <fog attach="fog" args={[scene.viewport.background.bottomColor, 18, 30]} />
         <SceneRuntime
           scene={scene}
           playbackTimeMs={playbackTimeMs}

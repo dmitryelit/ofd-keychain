@@ -1,143 +1,253 @@
-import type { SceneDocument } from "@ofd-keychain/scene-core";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+
+function joinClasses(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
 
 export function EditorShell({
-  topBar,
-  inspector,
-  timeline,
   viewport,
-  mobilePanel
+  brand,
+  toolbar,
+  leftSidebar,
+  rightSidebar,
+  centerPanel,
+  bottomRail,
+  mobilePanel,
+  stageStyle
 }: {
-  topBar: ReactNode;
-  inspector: ReactNode;
-  timeline: ReactNode;
   viewport: ReactNode;
-  mobilePanel?: ReactNode;
+  brand: ReactNode;
+  toolbar: ReactNode;
+  leftSidebar: ReactNode;
+  rightSidebar: ReactNode;
+  centerPanel: ReactNode;
+  bottomRail: ReactNode;
+  mobilePanel: ReactNode;
+  stageStyle?: CSSProperties;
 }) {
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black text-stone-50">
+    <div className="relative min-h-screen overflow-hidden bg-[#050505] text-white" style={stageStyle}>
+      <div className="absolute inset-0 opacity-70">
+        <div className="absolute inset-x-[8%] top-[-26%] h-[48vh] rounded-full bg-black blur-3xl" />
+        <div className="absolute left-1/2 top-[32%] h-[70vh] w-[70vw] -translate-x-1/2 rounded-full bg-[#0f7b5d]/30 blur-[120px]" />
+        <div className="absolute bottom-[-18%] left-1/2 h-[42vh] w-[76vw] -translate-x-1/2 rounded-full bg-white/12 blur-[120px]" />
+      </div>
       <div className="absolute inset-0">{viewport}</div>
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 p-3 sm:p-4">{topBar}</header>
-      <aside className="desktop-only pointer-events-none absolute right-4 top-20 bottom-24 z-20 w-[320px]">
-        {inspector}
-      </aside>
-      <section className="desktop-only pointer-events-none absolute bottom-4 left-4 right-[352px] z-20">
-        {timeline}
-      </section>
-      <section className="mobile-only pointer-events-none absolute inset-x-3 bottom-3 z-20 space-y-3">
-        {mobilePanel ?? (
-          <>
-            {timeline}
-            {inspector}
-          </>
-        )}
-      </section>
+      <header className="absolute inset-x-0 top-0 z-30 hidden items-start justify-between px-[50px] pt-[50px] lg:flex">
+        {brand}
+        {toolbar}
+      </header>
+      <aside className="absolute bottom-[50px] left-[50px] z-30 hidden lg:block">{leftSidebar}</aside>
+      <aside className="absolute bottom-[50px] right-[50px] z-30 hidden lg:block">{rightSidebar}</aside>
+      <section className="absolute bottom-[122px] left-1/2 z-30 hidden -translate-x-1/2 lg:block">{centerPanel}</section>
+      <section className="absolute bottom-[50px] left-1/2 z-30 hidden -translate-x-1/2 lg:block">{bottomRail}</section>
+      <section className="relative z-30 flex min-h-screen flex-col justify-between p-4 lg:hidden">{mobilePanel}</section>
     </div>
   );
 }
 
-export function InspectorPanel({
-  scene,
-  selectedObjectId
+export function GlassCard({
+  title,
+  onClose,
+  children,
+  className
 }: {
-  scene: SceneDocument;
-  selectedObjectId: string | null;
-}) {
-  const object = scene.objects.find((entry) => entry.id === selectedObjectId) ?? scene.objects[0];
-  const material = scene.materials.find((entry) => entry.id === object?.materialId);
-
-  return (
-    <div className="pointer-events-auto h-full overflow-y-auto rounded-[24px] border border-black/10 bg-white/78 p-4 text-stone-900 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-      <div className="space-y-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.28em] text-stone-500">Selection</p>
-          <h2 className="mt-2 text-base font-medium text-stone-950">{object?.name ?? "No selection"}</h2>
-          <p className="mt-1 text-sm text-stone-500">{material?.name ?? "Material preset"}</p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-2xl border border-black/8 bg-white/65 px-3 py-3">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500">Depth</p>
-            <p className="mt-1 text-sm text-stone-950">{object?.params.depth ?? 0} mm</p>
-          </div>
-          <div className="rounded-2xl border border-black/8 bg-white/65 px-3 py-3">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500">Bevel</p>
-            <p className="mt-1 text-sm text-stone-950">{object?.params.bevelEnabled ? "On" : "Off"}</p>
-          </div>
-          <div className="rounded-2xl border border-black/8 bg-white/65 px-3 py-3">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500">Ring</p>
-            <p className="mt-1 text-sm text-stone-950">{object?.params.ringHoleRadius ?? 0} mm</p>
-          </div>
-        </div>
-        <div className="space-y-2 rounded-3xl border border-black/8 bg-white/65 p-4">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-stone-500">Material</p>
-          <div className="flex items-center justify-between text-sm text-stone-700">
-            <span>Color</span>
-            <span className="font-medium text-stone-950">{material?.color ?? "#000000"}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm text-stone-500">
-            <span>Roughness</span>
-            <span>{material?.roughness ?? 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm text-stone-500">
-            <span>Metalness</span>
-            <span>{material?.metalness ?? 0}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function TimelinePanel({ scene, currentTimeMs }: { scene: SceneDocument; currentTimeMs: number }) {
-  return (
-    <div className="pointer-events-auto rounded-[24px] border border-black/10 bg-white/78 p-4 text-stone-900 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.28em] text-stone-500">Timeline</p>
-          <p className="mt-1 text-sm text-stone-700">
-            {Math.round(currentTimeMs)} / {scene.timeline.durationMs} ms at {scene.timeline.fps} fps
-          </p>
-        </div>
-        <div className="rounded-full border border-black/10 bg-white/70 px-3 py-1 text-[11px] text-stone-600">
-          {scene.timeline.loop ? "Looping" : "One-shot"}
-        </div>
-      </div>
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-        {scene.timeline.tracks.map((track) => (
-          <div key={track.id} className="min-w-[180px] rounded-3xl border border-black/8 bg-white/65 p-3">
-            <p className="text-sm font-medium text-stone-950">{track.property}</p>
-            <p className="text-xs text-stone-500">{track.targetRef}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {track.keyframes.map((keyframe) => (
-                <div
-                  key={keyframe.id}
-                  className="rounded-full border border-black/8 bg-white px-2 py-1 text-[11px] text-stone-600"
-                >
-                  {keyframe.timeMs}ms
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function Toolbar({
-  projectTitle,
-  actions
-}: {
-  projectTitle: string;
-  actions: ReactNode;
+  title: string;
+  onClose?: () => void;
+  children: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="pointer-events-auto flex flex-wrap items-start justify-between gap-3 rounded-[24px] border border-black/10 bg-white/78 px-4 py-3 text-stone-900 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:px-5">
-      <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-[0.32em] text-stone-500">Keychain Lab</p>
-        <h1 className="truncate text-base font-medium text-stone-950 sm:text-lg">{projectTitle}</h1>
+    <section
+      className={joinClasses(
+        "rounded-[16px] border border-white/5 bg-[#222]/94 p-2 text-white shadow-[0_18px_60px_rgba(0,0,0,0.32)] backdrop-blur-sm",
+        className
+      )}
+    >
+      <div className="flex items-center justify-center px-1">
+        <div className="min-w-0 flex-1" />
+        <h2 className="text-[14px] tracking-[-0.05em] text-white">{title}</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className={joinClasses(
+            "ml-auto inline-flex size-4 items-center justify-center rounded-full text-[#a3a3a3] transition hover:text-white",
+            !onClose && "pointer-events-none opacity-0"
+          )}
+          aria-label={`Close ${title}`}
+        >
+          <span className="text-sm leading-none">×</span>
+        </button>
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return <p className="text-center text-[14px] tracking-[-0.05em] text-[#808080]">{children}</p>;
+}
+
+export function ActionCluster({ children }: { children: ReactNode }) {
+  return <div className="flex items-center gap-1 rounded-[16px] bg-[#222]/94 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.32)]">{children}</div>;
+}
+
+export function IconActionButton({
+  active = false,
+  onClick,
+  children,
+  title,
+  disabled = false
+}: {
+  active?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+  title: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className={joinClasses(
+        "inline-flex size-10 items-center justify-center rounded-[16px] border border-white/6 bg-black text-white transition hover:bg-[#2f2f2f] disabled:cursor-not-allowed disabled:opacity-50",
+        active && "bg-[#2f2f2f]"
+      )}
+      aria-label={title}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function BrandBadge({ title, subtitle, icon }: { title: string; subtitle: string; icon: ReactNode }) {
+  return (
+    <div className="flex h-14 items-center gap-[6px] rounded-[16px] bg-[#222]/94 px-2 shadow-[0_18px_60px_rgba(0,0,0,0.32)]">
+      <div className="inline-flex size-10 items-center justify-center rounded-[12px] bg-black text-white">{icon}</div>
+      <div className="leading-none">
+        <p className="text-[18px] font-semibold tracking-[-0.07em] text-white">{title}</p>
+        <p className="mt-0.5 text-[18px] tracking-[-0.07em] text-white/90">{subtitle}</p>
+      </div>
     </div>
   );
+}
+
+export function PresetTile({
+  active = false,
+  onClick,
+  children,
+  disabled = false,
+  className
+}: {
+  active?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={joinClasses(
+        "flex h-20 w-20 items-center justify-center rounded-[12px] border border-transparent bg-[#2f2f2f] p-2 transition",
+        active && "bg-[#4c4c4c]",
+        !disabled && "hover:border-white/12",
+        disabled && "cursor-default opacity-60",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function CollapsedChip({
+  onClick,
+  children,
+  className
+}: {
+  onClick?: () => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={joinClasses(
+        "inline-flex h-14 w-14 items-center justify-center rounded-[16px] bg-[#222]/94 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.32)] transition hover:bg-[#2b2b2b]",
+        className
+      )}
+    >
+      <div className="flex size-10 items-center justify-center rounded-[8px] bg-[#424242]">{children}</div>
+    </button>
+  );
+}
+
+export function Rail({
+  leading,
+  children,
+  className
+}: {
+  leading?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={joinClasses(
+        "flex h-14 items-center gap-4 rounded-[16px] bg-[#222]/94 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.32)]",
+        className
+      )}
+    >
+      {leading}
+      {children}
+    </div>
+  );
+}
+
+export function RailSegment({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  const percentage = ((value - min) / (max - min || 1)) * 100;
+
+  return (
+    <label className="relative flex h-10 w-40 items-center justify-center overflow-hidden rounded-[12px] bg-black px-3">
+      <span
+        className="absolute inset-y-0 left-0 rounded-[12px] bg-[#4c4c4c] transition-[width]"
+        style={{ width: `${Math.max(0, Math.min(100, percentage))}%` }}
+      />
+      <span className="relative z-10 text-[14px] tracking-[-0.04em] text-white">{label}</span>
+      <input
+        aria-label={label}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="absolute inset-0 cursor-pointer opacity-0"
+      />
+    </label>
+  );
+}
+
+export function FieldFrame({ className, children }: { className?: string; children: ReactNode }) {
+  return <div className={joinClasses("rounded-[12px] bg-black p-2", className)}>{children}</div>;
 }

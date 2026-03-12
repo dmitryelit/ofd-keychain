@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const CURRENT_SCENE_VERSION = 1;
+export const CURRENT_SCENE_VERSION = 2;
 
 const vector3Schema = z.tuple([z.number(), z.number(), z.number()]);
 const vector2Schema = z.tuple([z.number(), z.number()]);
@@ -21,6 +21,7 @@ export const materialDefinitionSchema = z.object({
   roughness: z.number().min(0).max(1).default(0.35),
   metalness: z.number().min(0).max(1).default(0.6),
   clearcoat: z.number().min(0).max(1).default(0),
+  opacity: z.number().min(0).max(1).default(1),
   emissive: z.string().default("#000000"),
   normalScale: z.number().default(1),
   maps: z
@@ -28,9 +29,15 @@ export const materialDefinitionSchema = z.object({
       baseColor: textureMapSchema.optional(),
       normal: textureMapSchema.optional(),
       roughness: textureMapSchema.optional(),
+      metalness: textureMapSchema.optional(),
       decal: textureMapSchema.optional()
     })
     .default({})
+});
+
+export const backgroundGradientSchema = z.object({
+  topColor: z.string().default("#060606"),
+  bottomColor: z.string().default("#84d6bb")
 });
 
 export const shapeAssetSchema = z.object({
@@ -129,12 +136,18 @@ export const sceneDocumentSchema = z.object({
   }),
   viewport: z
     .object({
-      background: z.string().default("#f5f5f4"),
+      background: backgroundGradientSchema.default({
+        topColor: "#060606",
+        bottomColor: "#84d6bb"
+      }),
       exposure: z.number().default(1),
       shadows: z.boolean().default(true)
     })
     .default({
-      background: "#f5f5f4",
+      background: {
+        topColor: "#060606",
+        bottomColor: "#84d6bb"
+      },
       exposure: 1,
       shadows: true
     }),
@@ -170,6 +183,7 @@ export const sceneDocumentSchema = z.object({
 
 export type TextureMapDefinition = z.infer<typeof textureMapSchema>;
 export type MaterialDefinition = z.infer<typeof materialDefinitionSchema>;
+export type BackgroundGradient = z.infer<typeof backgroundGradientSchema>;
 export type ShapeAsset = z.infer<typeof shapeAssetSchema>;
 export type KeychainObject = z.infer<typeof keychainObjectSchema>;
 export type SceneLight = z.infer<typeof lightSchema>;
@@ -199,11 +213,11 @@ export function createDefaultSceneDocument(projectId = "local-project"): SceneDo
     },
     assets: [
       {
-        id: "shape-default",
-        name: "Rounded tag",
+        id: "shape-tag",
+        name: "Tag",
         normalizedSvgMarkup:
-          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80"><path d="M18 8h84a10 10 0 0 1 10 10v44a10 10 0 0 1-10 10H18A10 10 0 0 1 8 62V18A10 10 0 0 1 18 8zm8 18a6 6 0 1 0 0 12a6 6 0 0 0 0-12z"/></svg>',
-        viewBox: { width: 120, height: 80 },
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 120"><path d="M12.0779 12.2725C14.0472 5.02383 20.5637 0 27.9968 0C35.4299 0 41.9464 5.02382 43.9157 12.2725L55.1435 53.6011C56.2815 57.79 56.2856 62.2112 55.1554 66.4022L44.0317 107.651C42.0655 114.942 35.5172 120 28.0444 120C20.5832 120 14.042 114.957 12.0653 107.681L0.856542 66.4226C-0.285514 62.2187 -0.285514 57.7813 0.856541 53.5775L12.0779 12.2725Z" fill="#8A8A8A"/></svg>',
+        viewBox: { width: 56, height: 120 },
         extrudeDefaults: {
           depth: 4,
           bevelEnabled: true,
@@ -216,15 +230,16 @@ export function createDefaultSceneDocument(projectId = "local-project"): SceneDo
     ],
     materials: [
       {
-        id: "mat-brushed-steel",
-        name: "Brushed steel",
-        type: "metal",
-        color: "#c0c6cf",
-        roughness: 0.28,
-        metalness: 0.95,
-        clearcoat: 0.15,
+        id: "mat-plastic",
+        name: "Plastic",
+        type: "plastic",
+        color: "#1f2430",
+        roughness: 0.52,
+        metalness: 0.12,
+        clearcoat: 0.04,
+        opacity: 1,
         emissive: "#000000",
-        normalScale: 0.6
+        normalScale: 0.75
       }
     ],
     objects: [
@@ -232,8 +247,8 @@ export function createDefaultSceneDocument(projectId = "local-project"): SceneDo
         id: "object-keychain",
         name: "Hero keychain",
         type: "keychain",
-        assetId: "shape-default",
-        materialId: "mat-brushed-steel",
+        assetId: "shape-tag",
+        materialId: "mat-plastic",
         transform: {
           position: [0, 0, 0],
           rotation: [0.3, 0.7, 0],
@@ -297,6 +312,86 @@ export function createDefaultSceneDocument(projectId = "local-project"): SceneDo
     }
   });
 }
+
+function toGradientBackground(background: unknown) {
+  if (typeof background === "string") {
+    return {
+      topColor: background,
+      bottomColor: background
+    };
+  }
+
+  if (background && typeof background === "object") {
+    const candidate = background as { topColor?: unknown; bottomColor?: unknown };
+    const topColor = typeof candidate.topColor === "string" ? candidate.topColor : "#060606";
+    const bottomColor = typeof candidate.bottomColor === "string" ? candidate.bottomColor : topColor;
+    return {
+      topColor,
+      bottomColor
+    };
+  }
+
+  return {
+    topColor: "#060606",
+    bottomColor: "#84d6bb"
+  };
+}
+
+registerMigration({
+  from: 0,
+  to: 2,
+  migrate(input) {
+    const document = (input ?? {}) as {
+      sceneVersion?: number;
+      viewport?: { background?: unknown };
+      materials?: Array<Record<string, unknown>>;
+    };
+
+    return {
+      ...document,
+      sceneVersion: 2,
+      viewport: {
+        ...document.viewport,
+        background: toGradientBackground(document.viewport?.background)
+      },
+      materials: document.materials?.map((material) => ({
+        ...material,
+        opacity: typeof material.opacity === "number" ? material.opacity : 1,
+        maps: {
+          ...(typeof material.maps === "object" && material.maps ? material.maps : {})
+        }
+      }))
+    };
+  }
+});
+
+registerMigration({
+  from: 1,
+  to: 2,
+  migrate(input) {
+    const document = input as {
+      sceneVersion?: number;
+      viewport?: { background?: unknown };
+      materials?: Array<Record<string, unknown>>;
+    };
+
+    return {
+      ...document,
+      sceneVersion: 2,
+      viewport: {
+        ...document.viewport,
+        background: toGradientBackground(document.viewport?.background)
+      },
+      materials: document.materials?.map((material) => ({
+        ...material,
+        opacity: typeof material.opacity === "number" ? material.opacity : 1,
+        maps: {
+          ...(typeof material.maps === "object" && material.maps ? material.maps : {})
+        }
+      }))
+    };
+  }
+});
 
 export function migrateSceneDocument(input: unknown): unknown {
   const source = input as { sceneVersion?: number };
