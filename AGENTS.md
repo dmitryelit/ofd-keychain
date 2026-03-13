@@ -27,7 +27,7 @@
 - Keep domain logic in packages, not in route handlers or React components.
 - Prefer pure functions for timeline evaluation, serialization, and scene migration logic.
 - Use Figma MCP as the source of truth for design implementation when a Figma file or node is provided. Match sizing, spacing, panel placement, and component visuals as closely as possible instead of approximating.
-- Reuse the typed preset catalogs in `apps/web/src/lib/assets/catalog.ts` and the preset asset services/routes instead of hardcoding material or shape option lists in UI components.
+- Reuse the typed preset catalogs in `apps/web/assets/catalog.ts` and the preset asset services/routes instead of hardcoding material or shape option lists in UI components.
 - When changing materials, backgrounds, or shape presets, update both the editor experience and any viewer/runtime behavior that depends on the same serialized scene data.
 
 ## Product Boundaries

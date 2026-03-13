@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { MaterialDefinition } from "@ofd-keychain/scene-core";
-import { MATERIAL_PRESET_CATALOG, SHAPE_PRESET_CATALOG } from "../assets/catalog";
+import { MATERIAL_PRESET_CATALOG, SHAPE_PRESET_CATALOG } from "../../../assets/catalog";
 import { normalizeSvgMarkup } from "../utils/svg";
 
 export interface MaterialPresetPayload {
@@ -20,7 +20,7 @@ export interface ShapePresetPayload {
   };
 }
 
-const ASSET_ROOT = path.join(process.cwd(), "src", "lib", "assets");
+const ASSET_ROOT = path.join(process.cwd(), "assets");
 const ALLOWLISTED_ASSET_PATHS = new Set(
   [
     ...MATERIAL_PRESET_CATALOG.flatMap((preset) => [
