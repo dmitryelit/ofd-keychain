@@ -23,6 +23,26 @@ export interface ShapePresetCatalogEntry {
 
 export const MATERIAL_PRESET_CATALOG: MaterialPresetCatalogEntry[] = [
   {
+    id: "plastic",
+    name: "Plastic",
+    type: "plastic",
+    directory: "plastic",
+    previewFile: "material preview.png",
+    maps: {
+      normal: "scuffed-plastic-normal.png",
+      roughness: "scuffed-plastic-rough.png",
+      metalness: "scuffed-plastic-metal.png"
+    },
+    appearance: {
+      color: "#2c3036",
+      roughness: 0.52,
+      metalness: 0.12,
+      clearcoat: 0.04,
+      opacity: 1,
+      normalScale: 0.75
+    }
+  },
+  {
     id: "metal",
     name: "Metal",
     type: "metal",
@@ -34,32 +54,12 @@ export const MATERIAL_PRESET_CATALOG: MaterialPresetCatalogEntry[] = [
       metalness: "scuffed-metal1_metallic.png"
     },
     appearance: {
-      color: "#cfd4db",
-      roughness: 0.24,
-      metalness: 0.96,
-      clearcoat: 0.16,
+      color: "#171a1f",
+      roughness: 0.28,
+      metalness: 0.9,
+      clearcoat: 0.2,
       opacity: 1,
-      normalScale: 0.6
-    }
-  },
-  {
-    id: "quartz",
-    name: "Quartz",
-    type: "acrylic",
-    directory: "quartz",
-    previewFile: "material preview.png",
-    maps: {
-      normal: "cloudy-veined-quartz_normal-dx.png",
-      roughness: "cloudy-veined-quartz_roughness.png",
-      metalness: "cloudy-veined-quartz_metallic.png"
-    },
-    appearance: {
-      color: "#f4f2ea",
-      roughness: 0.36,
-      metalness: 0.18,
-      clearcoat: 0.48,
-      opacity: 0.88,
-      normalScale: 0.35
+      normalScale: 0.7
     }
   },
   {
@@ -83,23 +83,23 @@ export const MATERIAL_PRESET_CATALOG: MaterialPresetCatalogEntry[] = [
     }
   },
   {
-    id: "plastic",
-    name: "Plastic",
-    type: "plastic",
-    directory: "plastic",
+    id: "quartz",
+    name: "Quartz",
+    type: "acrylic",
+    directory: "quartz",
     previewFile: "material preview.png",
     maps: {
-      normal: "scuffed-plastic-normal.png",
-      roughness: "scuffed-plastic-rough.png",
-      metalness: "scuffed-plastic-metal.png"
+      normal: "cloudy-veined-quartz_normal-dx.png",
+      roughness: "cloudy-veined-quartz_roughness.png",
+      metalness: "cloudy-veined-quartz_metallic.png"
     },
     appearance: {
-      color: "#1f2430",
-      roughness: 0.52,
-      metalness: 0.12,
-      clearcoat: 0.04,
-      opacity: 1,
-      normalScale: 0.75
+      color: "#f4f2ea",
+      roughness: 0.36,
+      metalness: 0.18,
+      clearcoat: 0.48,
+      opacity: 0.88,
+      normalScale: 0.35
     }
   }
 ];

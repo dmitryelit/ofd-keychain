@@ -213,11 +213,11 @@ export function createDefaultSceneDocument(projectId = "local-project"): SceneDo
     },
     assets: [
       {
-        id: "shape-tag",
-        name: "Tag",
+        id: "shape-pill",
+        name: "Pill",
         normalizedSvgMarkup:
-          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 120"><path d="M12.0779 12.2725C14.0472 5.02383 20.5637 0 27.9968 0C35.4299 0 41.9464 5.02382 43.9157 12.2725L55.1435 53.6011C56.2815 57.79 56.2856 62.2112 55.1554 66.4022L44.0317 107.651C42.0655 114.942 35.5172 120 28.0444 120C20.5832 120 14.042 114.957 12.0653 107.681L0.856542 66.4226C-0.285514 62.2187 -0.285514 57.7813 0.856541 53.5775L12.0779 12.2725Z" fill="#8A8A8A"/></svg>',
-        viewBox: { width: 56, height: 120 },
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 120"><rect width="64" height="120" rx="32" fill="#8A8A8A"/></svg>',
+        viewBox: { width: 64, height: 120 },
         extrudeDefaults: {
           depth: 4,
           bevelEnabled: true,
@@ -230,16 +230,16 @@ export function createDefaultSceneDocument(projectId = "local-project"): SceneDo
     ],
     materials: [
       {
-        id: "mat-plastic",
-        name: "Plastic",
-        type: "plastic",
-        color: "#1f2430",
-        roughness: 0.52,
-        metalness: 0.12,
-        clearcoat: 0.04,
+        id: "mat-metal",
+        name: "Metal",
+        type: "metal",
+        color: "#171a1f",
+        roughness: 0.28,
+        metalness: 0.9,
+        clearcoat: 0.2,
         opacity: 1,
         emissive: "#000000",
-        normalScale: 0.75
+        normalScale: 0.7
       }
     ],
     objects: [
@@ -247,11 +247,11 @@ export function createDefaultSceneDocument(projectId = "local-project"): SceneDo
         id: "object-keychain",
         name: "Hero keychain",
         type: "keychain",
-        assetId: "shape-tag",
-        materialId: "mat-plastic",
+        assetId: "shape-pill",
+        materialId: "mat-metal",
         transform: {
           position: [0, 0, 0],
-          rotation: [0.3, 0.7, 0],
+          rotation: [0.48, 0.84, -0.2],
           scale: [1, 1, 1]
         },
         params: {
@@ -286,10 +286,10 @@ export function createDefaultSceneDocument(projectId = "local-project"): SceneDo
     ],
     cameraRig: {
       mode: "orbit",
-      position: [0, 1.5, 14],
-      target: [0, 0, 0],
-      fov: 32,
-      autoRotate: true,
+      position: [0.6, 0.7, 13.4],
+      target: [0, -0.3, 0],
+      fov: 28,
+      autoRotate: false,
       autoRotateSpeed: 0.8
     },
     timeline: {
