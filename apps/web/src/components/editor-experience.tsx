@@ -2,11 +2,13 @@
 
 import { createMediaRecorderExport } from "@ofd-keychain/export-core";
 import { KeychainCanvas } from "@ofd-keychain/render-engine";
-import type { MaterialDefinition, ShapeAsset } from "@ofd-keychain/scene-core";
-import { useEffect, useRef, useState, useTransition, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
+import type { MaterialDefinition, ShapeAsset, ViewportBackground } from "@ofd-keychain/scene-core";
+import { useEffect, useRef, useState, useTransition, type ChangeEvent, type ReactNode } from "react";
 import { loadDraft, saveDraft } from "@/lib/storage/drafts";
+import { reconcileSceneWithPresets } from "@/lib/scene/preset-scene";
 import { useEditorStore, type EditorPanel, type EditorState } from "@/lib/state/editor-store";
 import { trackEvent } from "@/lib/telemetry";
+import { createStageBackgroundStyle } from "@/lib/utils/background";
 
 interface MaterialPreset {
   id: string;
@@ -90,13 +92,6 @@ function AppsIcon() {
       <path d="M13.75 12.5h4.167v1.875a3.542 3.542 0 1 1-7.084 0c0-1.036.84-1.875 1.875-1.875H13.75Z" />
     </svg>
   );
-}
-
-function StageStyle(topColor: string, bottomColor: string): CSSProperties {
-  return {
-    backgroundImage: `linear-gradient(180deg, ${topColor} 15.869%, #175f47 57.935%, ${bottomColor} 100%)`,
-    backgroundColor: topColor
-  };
 }
 
 function ToolbarButton({
@@ -277,18 +272,55 @@ function PreviewChip({
   );
 }
 
-function BackgroundModeControl() {
+function BackgroundModeControl({
+  background,
+  onChange
+}: {
+  background: ViewportBackground;
+  onChange: (background: ViewportBackground) => void;
+}) {
   return (
     <div className="flex w-full items-start gap-[2px] rounded-[12px] bg-black p-[2px]">
-      <div className="flex min-w-[40px] flex-1 items-center justify-center rounded-[16px] px-2 py-1">
+      <button
+        type="button"
+        onClick={() => onChange({ mode: "transparent" })}
+        className={`flex min-w-[40px] flex-1 items-center justify-center rounded-[10px] px-2 py-1 transition ${
+          background.mode === "transparent" ? "bg-[#2f2f2f]" : "hover:bg-[#1b1b1b]"
+        }`}
+      >
         <span className="block size-[14px] rounded-full border border-dashed border-white/95" />
-      </div>
-      <div className="flex min-w-[40px] flex-1 items-center justify-center rounded-[16px] px-2 py-1">
-        <span className="block size-[14px] rounded-full bg-white" />
-      </div>
-      <div className="flex min-w-[40px] flex-1 items-center justify-center rounded-[10px] bg-[#2f2f2f] px-2 py-1">
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange({ mode: "solid", color: background.mode === "solid" ? background.color : "#ffffff" })}
+        className={`flex min-w-[40px] flex-1 items-center justify-center rounded-[10px] px-2 py-1 transition ${
+          background.mode === "solid" ? "bg-[#2f2f2f]" : "hover:bg-[#1b1b1b]"
+        }`}
+      >
+        <span
+          className="block size-[14px] rounded-full"
+          style={{ backgroundColor: background.mode === "solid" ? background.color : "#ffffff" }}
+        />
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onChange(
+            background.mode === "gradient"
+              ? background
+              : {
+                  mode: "gradient",
+                  topColor: "#060606",
+                  bottomColor: "#84d6bb"
+                }
+          )
+        }
+        className={`flex min-w-[40px] flex-1 items-center justify-center rounded-[10px] px-2 py-1 transition ${
+          background.mode === "gradient" ? "bg-[#2f2f2f]" : "hover:bg-[#1b1b1b]"
+        }`}
+      >
         <span className="block size-[14px] rounded-full bg-[radial-gradient(circle_at_50%_40%,#84d6bb_0%,#175f47_100%)]" />
-      </div>
+      </button>
     </div>
   );
 }
@@ -380,15 +412,20 @@ export function EditorExperience() {
             fetchJson<{ presets: ShapePreset[] }>("/api/assets/shape-presets")
           ]);
 
+          const projectScene = reconcileSceneWithPresets(project.project.scene, fetchedMaterialPresets.presets, fetchedShapePresets.presets);
+          projectScene.meta.projectId = project.project.id;
+
           setMaterialPresets(fetchedMaterialPresets.presets);
           setShapePresets(fetchedShapePresets.presets);
           setProjectIdentity(project.project.id, project.project.title);
-          hydrate(project.project.scene);
+          hydrate(projectScene);
 
           const draft = await loadDraft(project.project.id);
 
           if (draft) {
-            hydrate(draft);
+            const draftScene = reconcileSceneWithPresets(draft, fetchedMaterialPresets.presets, fetchedShapePresets.presets);
+            draftScene.meta.projectId = project.project.id;
+            hydrate(draftScene);
             setStatus("Loaded local draft");
           } else {
             setStatus("Ready");
@@ -517,14 +554,20 @@ export function EditorExperience() {
     togglePanelCollapsed(panel);
   }
 
-  const stageStyle = StageStyle(scene.viewport.background.topColor, scene.viewport.background.bottomColor);
+  const background = scene.viewport.background;
+  const gradientBackground = background.mode === "gradient" ? background : null;
+  const solidBackground = background.mode === "solid" ? background : null;
+  const stageStyle = createStageBackgroundStyle(background);
+  const showBackgroundOverlays = background.mode !== "transparent";
 
   return (
     <main className="relative min-h-screen overflow-hidden text-white" style={stageStyle}>
-      <div className="absolute inset-x-0 top-0 h-[180px] bg-gradient-to-b from-black/90 to-transparent" />
-      <div className="absolute inset-x-0 top-0 h-full bg-[radial-gradient(circle_at_50%_34%,rgba(0,0,0,0.8)_0%,rgba(0,0,0,0)_46%)]" />
+      {showBackgroundOverlays ? <div className="absolute inset-x-0 top-0 h-[180px] bg-gradient-to-b from-black/90 to-transparent" /> : null}
+      {showBackgroundOverlays ? (
+        <div className="absolute inset-x-0 top-0 h-full bg-[radial-gradient(circle_at_50%_34%,rgba(0,0,0,0.8)_0%,rgba(0,0,0,0)_46%)]" />
+      ) : null}
       <div className="absolute inset-0 hidden lg:block">
-        <KeychainCanvas scene={scene} className="h-full w-full" />
+        <KeychainCanvas scene={scene} className="h-full w-full" idleSpin />
       </div>
 
       <div className="absolute left-[50px] top-[50px] z-30 hidden h-14 rounded-[16px] bg-[#222] p-2 lg:flex">
@@ -631,25 +674,42 @@ export function EditorExperience() {
               <div className="flex flex-col items-center gap-4">
                 <SectionLabel>Background Color</SectionLabel>
                 <div className="flex flex-col gap-2">
-                  <BackgroundModeControl />
-                  <ColorField
-                    value={scene.viewport.background.topColor}
-                    onChange={(value) =>
-                      setViewportBackground({
-                        topColor: value,
-                        bottomColor: scene.viewport.background.bottomColor
-                      })
-                    }
-                  />
-                  <ColorField
-                    value={scene.viewport.background.bottomColor}
-                    onChange={(value) =>
-                      setViewportBackground({
-                        topColor: scene.viewport.background.topColor,
-                        bottomColor: value
-                      })
-                    }
-                  />
+                  <BackgroundModeControl background={background} onChange={setViewportBackground} />
+                  {gradientBackground ? (
+                    <>
+                      <ColorField
+                        value={gradientBackground.topColor}
+                        onChange={(value) =>
+                          setViewportBackground({
+                            mode: "gradient",
+                            topColor: value,
+                            bottomColor: gradientBackground.bottomColor
+                          })
+                        }
+                      />
+                      <ColorField
+                        value={gradientBackground.bottomColor}
+                        onChange={(value) =>
+                          setViewportBackground({
+                            mode: "gradient",
+                            topColor: gradientBackground.topColor,
+                            bottomColor: value
+                          })
+                        }
+                      />
+                    </>
+                  ) : null}
+                  {solidBackground ? (
+                    <ColorField
+                      value={solidBackground.color}
+                      onChange={(value) =>
+                        setViewportBackground({
+                          mode: "solid",
+                          color: value
+                        })
+                      }
+                    />
+                  ) : null}
                 </div>
               </div>
 

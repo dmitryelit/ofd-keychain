@@ -2,7 +2,14 @@
 
 import { Environment, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { evaluateTimeline, type MaterialDefinition, type ScalarOrVector, type SceneDocument, type ShapeAsset } from "@ofd-keychain/scene-core";
+import {
+  evaluateTimeline,
+  getViewportBackgroundBaseColor,
+  type MaterialDefinition,
+  type ScalarOrVector,
+  type SceneDocument,
+  type ShapeAsset
+} from "@ofd-keychain/scene-core";
 import { useEffect, useMemo, useRef } from "react";
 import {
   Box3,
@@ -48,12 +55,19 @@ export function createMaterial(material: MaterialDefinition) {
   });
 }
 
-function applyTextureTransform(texture: any, definition: { tiling: [number, number]; offset: [number, number]; rotation: number }) {
+function applyTextureTransform(
+  texture: any,
+  definition: Partial<{ tiling: [number, number]; offset: [number, number]; rotation: number }> = {}
+) {
+  const tiling = definition.tiling ?? [1, 1];
+  const offset = definition.offset ?? [0, 0];
+  const rotation = definition.rotation ?? 0;
+
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
-  texture.repeat.set(...definition.tiling);
-  texture.offset.set(...definition.offset);
-  texture.rotation = definition.rotation;
+  texture.repeat.set(...tiling);
+  texture.offset.set(...offset);
+  texture.rotation = rotation;
   texture.needsUpdate = true;
   return texture;
 }
@@ -74,18 +88,13 @@ function loadTexture(url: string) {
   return textureCache.get(url)!;
 }
 
-function appendRingHole(shapes: Shape[], asset: ShapeAsset, ringHoleRadius: number) {
-  if (!shapes[0] || ringHoleRadius <= 0) {
-    return shapes;
-  }
+function getShapePoints(shape: Shape) {
+  const extracted = shape.extractPoints(48);
+  return [...extracted.shape, ...shape.holes.flatMap((hole) => hole.getPoints(48))];
+}
 
-  const contourPoints = shapes[0].extractPoints(48).shape;
-
-  if (contourPoints.length === 0) {
-    return shapes;
-  }
-
-  const bounds = contourPoints.reduce(
+function getBoundsFromPoints(points: Array<{ x: number; y: number }>) {
+  return points.reduce(
     (accumulator, point) => ({
       minX: Math.min(accumulator.minX, point.x),
       maxX: Math.max(accumulator.maxX, point.x),
@@ -99,7 +108,21 @@ function appendRingHole(shapes: Shape[], asset: ShapeAsset, ringHoleRadius: numb
       maxY: Number.NEGATIVE_INFINITY
     }
   );
+}
 
+export function appendRingHoleToShapes(shapes: Shape[], asset: ShapeAsset, ringHoleRadius: number) {
+  if (!shapes.length || ringHoleRadius <= 0) {
+    return shapes;
+  }
+
+  const shapePoints = shapes.map((shape) => getShapePoints(shape));
+  const allPoints = shapePoints.flat();
+
+  if (allPoints.length === 0) {
+    return shapes;
+  }
+
+  const bounds = getBoundsFromPoints(allPoints);
   const width = asset.viewBox.width || bounds.maxX - bounds.minX || 1;
   const height = asset.viewBox.height || bounds.maxY - bounds.minY || 1;
   const radius = Math.max(0.8, ringHoleRadius * 3.2);
@@ -107,18 +130,31 @@ function appendRingHole(shapes: Shape[], asset: ShapeAsset, ringHoleRadius: numb
   const holeCenterY = bounds.minY + height * 0.18;
   const holePath = new Path();
   holePath.absellipse(holeCenterX, holeCenterY, radius, radius, 0, Math.PI * 2, false, 0);
-  shapes[0].holes = [holePath];
+
+  const targetShapeIndex = shapePoints.findIndex((points) => {
+    const shapeBounds = getBoundsFromPoints(points);
+    return (
+      holeCenterX >= shapeBounds.minX &&
+      holeCenterX <= shapeBounds.maxX &&
+      holeCenterY >= shapeBounds.minY &&
+      holeCenterY <= shapeBounds.maxY
+    );
+  });
+  const targetShape = shapes[targetShapeIndex >= 0 ? targetShapeIndex : 0];
+
+  targetShape.holes.push(holePath);
   return shapes;
 }
 
-export function createExtrudedGeometry(asset: ShapeAsset, options: ExtrudeOptions) {
+export function buildShapesFromSvgAsset(asset: ShapeAsset, ringHoleRadius: number) {
   const loader = new SVGLoader();
   const data = loader.parse(asset.normalizedSvgMarkup);
-  const shapes = appendRingHole(
-    data.paths.flatMap((path: ShapePath) => SVGLoader.createShapes(path)),
-    asset,
-    options.ringHoleRadius
-  );
+  const shapes = data.paths.flatMap((path: ShapePath) => SVGLoader.createShapes(path));
+  return appendRingHoleToShapes(shapes, asset, ringHoleRadius);
+}
+
+export function createExtrudedGeometry(asset: ShapeAsset, options: ExtrudeOptions) {
+  const shapes = buildShapesFromSvgAsset(asset, options.ringHoleRadius);
   const geometry = new ExtrudeGeometry(shapes, {
     ...options,
     curveSegments: 24,
@@ -134,6 +170,8 @@ export function createExtrudedGeometry(asset: ShapeAsset, options: ExtrudeOption
   const maxDimension = Math.max(size.x, size.y, size.z, 1);
   const normalizedScale = 5.5 / maxDimension;
   geometry.scale(normalizedScale, normalizedScale, normalizedScale);
+  geometry.rotateZ(Math.PI);
+  geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.center();
   return geometry;
@@ -392,12 +430,14 @@ function SceneRuntime({
   scene,
   playbackTimeMs,
   autoplayTimeline,
-  readOnly
+  readOnly,
+  idleSpin
 }: {
   scene: SceneDocument;
   playbackTimeMs: number;
   autoplayTimeline: boolean;
   readOnly: boolean;
+  idleSpin: boolean;
 }) {
   const meshRef = useRef<Mesh>(null);
   const controlsRef = useRef<any>(null);
@@ -423,9 +463,10 @@ function SceneRuntime({
         timelineValues[`${keychainObject.id}:transform.scale`] as ScalarOrVector | string | null,
         keychainObject.transform.scale
       );
+      const idleSpinOffset = idleSpin && !autoplayTimeline ? clock.getElapsedTime() * 0.45 : 0;
 
       meshRef.current.position.set(...nextPosition);
-      meshRef.current.rotation.set(...nextRotation);
+      meshRef.current.rotation.set(nextRotation[0], nextRotation[1] + idleSpinOffset, nextRotation[2]);
       meshRef.current.scale.set(...nextScale);
     }
 
@@ -473,13 +514,15 @@ export function KeychainCanvas({
   readOnly = false,
   className,
   playbackTimeMs = 0,
-  autoplayTimeline = false
+  autoplayTimeline = false,
+  idleSpin = false
 }: {
   scene: SceneDocument;
   readOnly?: boolean;
   className?: string;
   playbackTimeMs?: number;
   autoplayTimeline?: boolean;
+  idleSpin?: boolean;
 }) {
   return (
     <div className={className}>
@@ -489,12 +532,15 @@ export function KeychainCanvas({
         shadows
         gl={{ antialias: true, alpha: true }}
       >
-        <fog attach="fog" args={[scene.viewport.background.bottomColor, 18, 30]} />
+        {scene.viewport.background.mode !== "transparent" ? (
+          <fog attach="fog" args={[getViewportBackgroundBaseColor(scene.viewport.background), 18, 30]} />
+        ) : null}
         <SceneRuntime
           scene={scene}
           playbackTimeMs={playbackTimeMs}
           autoplayTimeline={autoplayTimeline}
           readOnly={readOnly}
+          idleSpin={idleSpin}
         />
       </Canvas>
     </div>

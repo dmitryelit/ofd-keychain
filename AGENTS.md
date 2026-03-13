@@ -37,11 +37,13 @@
 - The mobile editor may use a simplified fallback, but desktop remains the reference experience and must be kept closest to Figma.
 
 ## Current Contracts
-- `SceneDocument` is currently on schema version `2`.
-- `viewport.background` is a gradient object with `topColor` and `bottomColor`, not a single string color.
+- `SceneDocument` is currently on schema version `3`.
+- `viewport.background` is a discriminated union that supports `{ mode: "gradient", topColor, bottomColor }`, `{ mode: "solid", color }`, and `{ mode: "transparent" }`.
 - `MaterialDefinition` currently includes `opacity` and supports `maps.metalness` in addition to existing texture maps.
 - Shape and material presets are served from `apps/web` through allowlisted asset routes under `/api/assets/*`.
-- The editor currently supports live material presets, shape presets, SVG upload, gradient background editing, and `Depth / Bevel / Ring` controls.
+- New projects should be seeded from the preset asset services so default materials include preset map URLs and default shapes include preset SVG source URLs.
+- The desktop editor opens with the floating panels collapsed into preview chips, while the desktop stage itself runs an editor-only idle spin on the keychain object.
+- The editor currently supports live material presets, shape presets, SVG upload, gradient/solid/transparent background editing, and `Depth / Bevel / Ring` controls.
 
 ## Testing Requirements
 - Add or update automated tests for:

@@ -1,3 +1,5 @@
+import type { ShapeAsset } from "@ofd-keychain/scene-core";
+
 export interface MaterialPresetCatalogEntry {
   id: string;
   name: string;
@@ -19,7 +21,17 @@ export interface ShapePresetCatalogEntry {
   id: string;
   name: string;
   fileName: string;
+  extrudeDefaults: ShapeAsset["extrudeDefaults"];
 }
+
+const DEFAULT_SHAPE_EXTRUDE = {
+  depth: 4,
+  bevelEnabled: true,
+  bevelSegments: 2,
+  bevelSize: 0.35,
+  bevelThickness: 0.45,
+  ringHoleRadius: 1.2
+} satisfies ShapeAsset["extrudeDefaults"];
 
 export const MATERIAL_PRESET_CATALOG: MaterialPresetCatalogEntry[] = [
   {
@@ -108,26 +120,31 @@ export const SHAPE_PRESET_CATALOG: ShapePresetCatalogEntry[] = [
   {
     id: "pill",
     name: "Pill",
-    fileName: "pill.svg"
+    fileName: "pill.svg",
+    extrudeDefaults: DEFAULT_SHAPE_EXTRUDE
   },
   {
     id: "tag",
     name: "Tag",
-    fileName: "tag.svg"
+    fileName: "tag.svg",
+    extrudeDefaults: DEFAULT_SHAPE_EXTRUDE
   },
   {
     id: "tree",
     name: "Tree",
-    fileName: "tree.svg"
+    fileName: "tree.svg",
+    extrudeDefaults: DEFAULT_SHAPE_EXTRUDE
   },
   {
     id: "spark",
     name: "Spark",
-    fileName: "spark.svg"
+    fileName: "spark.svg",
+    extrudeDefaults: DEFAULT_SHAPE_EXTRUDE
   },
   {
     id: "circle",
     name: "Circle",
-    fileName: "circle.svg"
+    fileName: "circle.svg",
+    extrudeDefaults: DEFAULT_SHAPE_EXTRUDE
   }
 ];

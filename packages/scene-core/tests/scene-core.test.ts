@@ -15,7 +15,11 @@ describe("scene-core", () => {
     expect(parsed.meta.projectId).toBe("project-1");
     expect(parsed.objects).toHaveLength(1);
     expect(parsed.timeline.tracks).toHaveLength(1);
-    expect(parsed.viewport.background.topColor).toBe("#060606");
+    expect(parsed.viewport.background).toEqual({
+      mode: "gradient",
+      topColor: "#060606",
+      bottomColor: "#84d6bb"
+    });
     expect(parsed.materials[0]?.opacity).toBe(1);
   });
 
@@ -42,7 +46,7 @@ describe("scene-core", () => {
     expect(history.snapshot().value).toBe(2);
   });
 
-  it("migrates legacy background and material fields", () => {
+  it("migrates legacy string backgrounds into solid mode", () => {
     const parsed = parseSceneDocument({
       sceneVersion: 1,
       meta: {
@@ -88,12 +92,57 @@ describe("scene-core", () => {
       }
     });
 
-    expect(parsed.sceneVersion).toBe(2);
+    expect(parsed.sceneVersion).toBe(3);
     expect(parsed.viewport.background).toEqual({
-      topColor: "#ff00ff",
-      bottomColor: "#ff00ff"
+      mode: "solid",
+      color: "#ff00ff"
     });
     expect(parsed.materials[0]?.opacity).toBe(1);
     expect(parsed.materials[0]?.maps.metalness).toBeUndefined();
+  });
+
+  it("migrates v2 gradient backgrounds into gradient mode", () => {
+    const parsed = parseSceneDocument({
+      sceneVersion: 2,
+      meta: {
+        projectId: "gradient-project",
+        title: "Gradient scene",
+        updatedAt: new Date().toISOString()
+      },
+      viewport: {
+        background: {
+          topColor: "#111111",
+          bottomColor: "#22cc88"
+        },
+        exposure: 1,
+        shadows: true
+      },
+      assets: [],
+      materials: [],
+      objects: [],
+      lights: [],
+      cameraRig: {
+        mode: "orbit",
+        position: [0, 0, 12],
+        target: [0, 0, 0],
+        fov: 35,
+        autoRotate: false,
+        autoRotateSpeed: 1
+      },
+      timeline: {
+        durationMs: 1000,
+        fps: 30,
+        loop: true,
+        tracks: [],
+        markers: []
+      }
+    });
+
+    expect(parsed.sceneVersion).toBe(3);
+    expect(parsed.viewport.background).toEqual({
+      mode: "gradient",
+      topColor: "#111111",
+      bottomColor: "#22cc88"
+    });
   });
 });

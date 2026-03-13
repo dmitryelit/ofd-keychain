@@ -31,14 +31,22 @@ async function createFileRepository(): Promise<ProjectRepository> {
   return {
     async createProject(input) {
       const db = await readDb();
+      const id = crypto.randomUUID();
+      const scene = {
+        ...input.scene,
+        meta: {
+          ...input.scene.meta,
+          projectId: id
+        }
+      };
       const record: ProjectRecord = {
-        id: crypto.randomUUID(),
+        id,
         slug: null,
         title: input.title,
         status: "draft",
-        coverAssetId: input.scene.assets[0]?.id ?? null,
+        coverAssetId: scene.assets[0]?.id ?? null,
         publishedSceneVersionId: null,
-        scene: input.scene,
+        scene,
         createdAt: now(),
         updatedAt: now()
       };
@@ -117,15 +125,24 @@ async function createPrismaRepository(): Promise<ProjectRepository> {
 
   return {
     async createProject(input) {
+      const id = crypto.randomUUID();
+      const scene = {
+        ...input.scene,
+        meta: {
+          ...input.scene.meta,
+          projectId: id
+        }
+      };
       const created = await prisma.project.create({
         data: {
+          id,
           title: input.title,
           slug: `draft-${crypto.randomUUID().slice(0, 8)}`,
           status: "draft",
-          coverAssetId: input.scene.assets[0]?.id ?? null,
+          coverAssetId: scene.assets[0]?.id ?? null,
           sceneVersions: {
             create: {
-              sceneJson: input.scene
+              sceneJson: scene
             }
           }
         },

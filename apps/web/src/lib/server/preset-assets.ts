@@ -14,7 +14,10 @@ export interface MaterialPresetPayload {
 export interface ShapePresetPayload {
   id: string;
   name: string;
-  asset: ReturnType<typeof normalizeSvgMarkup> & { sourceSvgUrl: string };
+  asset: ReturnType<typeof normalizeSvgMarkup> & {
+    sourceSvgUrl: string;
+    extrudeDefaults: typeof SHAPE_PRESET_CATALOG[number]["extrudeDefaults"];
+  };
 }
 
 const ASSET_ROOT = path.join(process.cwd(), "src", "lib", "assets");
@@ -78,7 +81,11 @@ export async function listMaterialPresets(): Promise<MaterialPresetPayload[]> {
         Object.entries(preset.maps).map(([key, fileName]) => [
           key,
           {
-            url: toAssetUrl(["materials", preset.directory, fileName as string])
+            url: toAssetUrl(["materials", preset.directory, fileName as string]),
+            tiling: [1, 1],
+            offset: [0, 0],
+            rotation: 0,
+            opacity: 1
           }
         ])
       )
@@ -98,7 +105,10 @@ export async function listShapePresets(): Promise<ShapePresetPayload[]> {
         name: preset.name,
         asset: {
           ...normalized,
-          sourceSvgUrl
+          sourceSvgUrl,
+          extrudeDefaults: {
+            ...preset.extrudeDefaults
+          }
         }
       };
     })

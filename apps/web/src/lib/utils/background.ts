@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { getViewportBackgroundBaseColor, type ViewportBackground } from "@ofd-keychain/scene-core";
 
 function clamp(value: number) {
   return Math.max(0, Math.min(255, value));
@@ -31,14 +32,28 @@ function mixHexColors(first: string, second: string, ratio: number) {
   return `#${toHexChannel(left.r + (right.r - left.r) * weight)}${toHexChannel(left.g + (right.g - left.g) * weight)}${toHexChannel(left.b + (right.b - left.b) * weight)}`;
 }
 
-export function createStageBackgroundStyle(topColor: string, bottomColor: string): CSSProperties {
-  const middleColor = mixHexColors(topColor, bottomColor, 0.55);
+export function createStageBackgroundStyle(background: ViewportBackground): CSSProperties {
+  if (background.mode === "transparent") {
+    return {
+      backgroundColor: "transparent",
+      backgroundImage: "none"
+    };
+  }
+
+  if (background.mode === "solid") {
+    return {
+      backgroundColor: background.color,
+      backgroundImage: "none"
+    };
+  }
+
+  const middleColor = mixHexColors(background.topColor, background.bottomColor, 0.55);
 
   return {
-    backgroundColor: topColor,
+    backgroundColor: getViewportBackgroundBaseColor(background),
     backgroundImage: [
-      `radial-gradient(circle at 50% 76%, ${bottomColor} 0%, rgba(132, 214, 187, 0) 52%)`,
-      `linear-gradient(180deg, ${topColor} 8%, ${middleColor} 56%, ${bottomColor} 100%)`
+      `radial-gradient(circle at 50% 76%, ${background.bottomColor} 0%, rgba(132, 214, 187, 0) 52%)`,
+      `linear-gradient(180deg, ${background.topColor} 8%, ${middleColor} 56%, ${background.bottomColor} 100%)`
     ].join(", ")
   };
 }

@@ -3,12 +3,12 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import {
-  type BackgroundGradient,
   createDefaultSceneDocument,
   parseSceneDocument,
   type MaterialDefinition,
   type SceneDocument,
-  type ShapeAsset
+  type ShapeAsset,
+  type ViewportBackground
 } from "@ofd-keychain/scene-core";
 
 export type EditorPanel = "material" | "scene" | "shape";
@@ -42,7 +42,7 @@ export interface EditorState {
   setAutoRotate: (enabled: boolean) => void;
   applyShapePreset: (asset: ShapeAsset) => void;
   replaceShapeAsset: (asset: Pick<ShapeAsset, "id" | "name" | "normalizedSvgMarkup" | "viewBox">) => void;
-  setViewportBackground: (background: BackgroundGradient) => void;
+  setViewportBackground: (background: ViewportBackground) => void;
   togglePanelCollapsed: (panel: EditorPanel) => void;
   setPublishSlug: (slug: string | null) => void;
 }
@@ -58,9 +58,9 @@ export const useEditorStore = create<EditorState>()(
     currentTimeMs: 0,
     publishSlug: null,
     collapsedPanels: {
-      material: false,
-      scene: false,
-      shape: false
+      material: true,
+      scene: true,
+      shape: true
     },
     setProjectIdentity(projectId, title) {
       set((state) => {
@@ -78,9 +78,9 @@ export const useEditorStore = create<EditorState>()(
         state.projectTitle = parsed.meta.title;
         state.selectedObjectId = parsed.objects[0]?.id ?? null;
         state.collapsedPanels = {
-          material: false,
-          scene: false,
-          shape: false
+          material: true,
+          scene: true,
+          shape: true
         };
       });
     },

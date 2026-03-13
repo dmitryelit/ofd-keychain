@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const CURRENT_SCENE_VERSION = 2;
+export const CURRENT_SCENE_VERSION = 3;
 
 const vector3Schema = z.tuple([z.number(), z.number(), z.number()]);
 const vector2Schema = z.tuple([z.number(), z.number()]);
@@ -36,9 +36,25 @@ export const materialDefinitionSchema = z.object({
 });
 
 export const backgroundGradientSchema = z.object({
+  mode: z.literal("gradient"),
   topColor: z.string().default("#060606"),
   bottomColor: z.string().default("#84d6bb")
 });
+
+export const backgroundSolidSchema = z.object({
+  mode: z.literal("solid"),
+  color: z.string().default("#060606")
+});
+
+export const backgroundTransparentSchema = z.object({
+  mode: z.literal("transparent")
+});
+
+export const viewportBackgroundSchema = z.discriminatedUnion("mode", [
+  backgroundGradientSchema,
+  backgroundSolidSchema,
+  backgroundTransparentSchema
+]);
 
 export const shapeAssetSchema = z.object({
   id: z.string(),
@@ -136,7 +152,8 @@ export const sceneDocumentSchema = z.object({
   }),
   viewport: z
     .object({
-      background: backgroundGradientSchema.default({
+      background: viewportBackgroundSchema.default({
+        mode: "gradient",
         topColor: "#060606",
         bottomColor: "#84d6bb"
       }),
@@ -145,6 +162,7 @@ export const sceneDocumentSchema = z.object({
     })
     .default({
       background: {
+        mode: "gradient",
         topColor: "#060606",
         bottomColor: "#84d6bb"
       },
@@ -184,6 +202,9 @@ export const sceneDocumentSchema = z.object({
 export type TextureMapDefinition = z.infer<typeof textureMapSchema>;
 export type MaterialDefinition = z.infer<typeof materialDefinitionSchema>;
 export type BackgroundGradient = z.infer<typeof backgroundGradientSchema>;
+export type BackgroundSolid = z.infer<typeof backgroundSolidSchema>;
+export type BackgroundTransparent = z.infer<typeof backgroundTransparentSchema>;
+export type ViewportBackground = z.infer<typeof viewportBackgroundSchema>;
 export type ShapeAsset = z.infer<typeof shapeAssetSchema>;
 export type KeychainObject = z.infer<typeof keychainObjectSchema>;
 export type SceneLight = z.infer<typeof lightSchema>;
@@ -313,33 +334,69 @@ export function createDefaultSceneDocument(projectId = "local-project"): SceneDo
   });
 }
 
-function toGradientBackground(background: unknown) {
+function toViewportBackground(background: unknown): ViewportBackground {
   if (typeof background === "string") {
     return {
-      topColor: background,
-      bottomColor: background
+      mode: "solid",
+      color: background
     };
   }
 
   if (background && typeof background === "object") {
-    const candidate = background as { topColor?: unknown; bottomColor?: unknown };
-    const topColor = typeof candidate.topColor === "string" ? candidate.topColor : "#060606";
-    const bottomColor = typeof candidate.bottomColor === "string" ? candidate.bottomColor : topColor;
-    return {
-      topColor,
-      bottomColor
+    const candidate = background as {
+      mode?: unknown;
+      color?: unknown;
+      topColor?: unknown;
+      bottomColor?: unknown;
     };
+
+    if (candidate.mode === "transparent") {
+      return {
+        mode: "transparent"
+      };
+    }
+
+    if (candidate.mode === "solid" || (typeof candidate.color === "string" && candidate.mode !== "gradient")) {
+      return {
+        mode: "solid",
+        color: typeof candidate.color === "string" ? candidate.color : "#060606"
+      };
+    }
+
+    if (candidate.mode === "gradient" || typeof candidate.topColor === "string" || typeof candidate.bottomColor === "string") {
+      const topColor = typeof candidate.topColor === "string" ? candidate.topColor : "#060606";
+      const bottomColor = typeof candidate.bottomColor === "string" ? candidate.bottomColor : topColor;
+
+      return {
+        mode: "gradient",
+        topColor,
+        bottomColor
+      };
+    }
   }
 
   return {
+    mode: "gradient",
     topColor: "#060606",
     bottomColor: "#84d6bb"
   };
 }
 
+export function getViewportBackgroundBaseColor(background: ViewportBackground): string {
+  if (background.mode === "solid") {
+    return background.color;
+  }
+
+  if (background.mode === "transparent") {
+    return "#060606";
+  }
+
+  return background.bottomColor;
+}
+
 registerMigration({
   from: 0,
-  to: 2,
+  to: 3,
   migrate(input) {
     const document = (input ?? {}) as {
       sceneVersion?: number;
@@ -349,10 +406,10 @@ registerMigration({
 
     return {
       ...document,
-      sceneVersion: 2,
+      sceneVersion: 3,
       viewport: {
         ...document.viewport,
-        background: toGradientBackground(document.viewport?.background)
+        background: toViewportBackground(document.viewport?.background)
       },
       materials: document.materials?.map((material) => ({
         ...material,
@@ -367,7 +424,7 @@ registerMigration({
 
 registerMigration({
   from: 1,
-  to: 2,
+  to: 3,
   migrate(input) {
     const document = input as {
       sceneVersion?: number;
@@ -377,10 +434,10 @@ registerMigration({
 
     return {
       ...document,
-      sceneVersion: 2,
+      sceneVersion: 3,
       viewport: {
         ...document.viewport,
-        background: toGradientBackground(document.viewport?.background)
+        background: toViewportBackground(document.viewport?.background)
       },
       materials: document.materials?.map((material) => ({
         ...material,
@@ -389,6 +446,26 @@ registerMigration({
           ...(typeof material.maps === "object" && material.maps ? material.maps : {})
         }
       }))
+    };
+  }
+});
+
+registerMigration({
+  from: 2,
+  to: 3,
+  migrate(input) {
+    const document = input as {
+      sceneVersion?: number;
+      viewport?: { background?: unknown };
+    };
+
+    return {
+      ...document,
+      sceneVersion: 3,
+      viewport: {
+        ...document.viewport,
+        background: toViewportBackground(document.viewport?.background)
+      }
     };
   }
 });
