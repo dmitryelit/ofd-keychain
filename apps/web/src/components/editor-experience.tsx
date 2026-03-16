@@ -4,9 +4,9 @@ import { createMediaRecorderExport } from "@ofd-keychain/export-core";
 import { KeychainCanvas } from "@ofd-keychain/render-engine";
 import type { MaterialDefinition, ShapeAsset, ViewportBackground } from "@ofd-keychain/scene-core";
 import { useEffect, useRef, useState, useTransition, type ChangeEvent, type ReactNode } from "react";
-import { loadDraft, saveDraft } from "@/lib/storage/drafts";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/storage/drafts";
 import { getEditorBootstrapStatus, getPresetCollectionMessage } from "@/lib/editor/preset-status";
-import { reconcileSceneWithPresets } from "@/lib/scene/preset-scene";
+import { createPresetSeededScene, reconcileSceneWithPresets } from "@/lib/scene/preset-scene";
 import { useEditorStore, type EditorPanel, type EditorState } from "@/lib/state/editor-store";
 import { trackEvent } from "@/lib/telemetry";
 import { createStageBackgroundStyle } from "@/lib/utils/background";
@@ -414,6 +414,9 @@ export function EditorExperience() {
 
     startTransition(() => {
       void (async () => {
+        let materialPresetFailure: string | null = null;
+        let shapePresetFailure: string | null = null;
+
         try {
           const [projectResult, materialPresetResult, shapePresetResult] = await Promise.allSettled([
             fetchJson<{
@@ -423,54 +426,84 @@ export function EditorExperience() {
             fetchJson<{ presets: ShapePreset[] }>("/api/assets/shape-presets")
           ]);
 
-          if (projectResult.status === "rejected") {
-            throw projectResult.reason;
-          }
-
-          const materialPresetFailure =
+          materialPresetFailure =
             materialPresetResult.status === "rejected" ? "Failed to load material presets" : null;
-          const shapePresetFailure =
+          shapePresetFailure =
             shapePresetResult.status === "rejected" ? "Failed to load shape presets" : null;
           const resolvedMaterialPresets =
             materialPresetResult.status === "fulfilled" ? materialPresetResult.value.presets : [];
           const resolvedShapePresets =
             shapePresetResult.status === "fulfilled" ? shapePresetResult.value.presets : [];
-
-          const project = projectResult.value;
-          const projectScene = reconcileSceneWithPresets(
-            project.project.scene,
-            resolvedMaterialPresets,
-            resolvedShapePresets
-          );
-          projectScene.meta.projectId = project.project.id;
+          const fallbackScene = createPresetSeededScene("local-project", resolvedMaterialPresets, resolvedShapePresets);
 
           setMaterialPresets(resolvedMaterialPresets);
           setShapePresets(resolvedShapePresets);
           setMaterialPresetError(materialPresetFailure);
           setShapePresetError(shapePresetFailure);
-          setProjectIdentity(project.project.id, project.project.title);
+
+          const projectSceneSource =
+            projectResult.status === "fulfilled"
+              ? projectResult.value.project.scene
+              : fallbackScene;
+          const projectIdValue =
+            projectResult.status === "fulfilled"
+              ? projectResult.value.project.id
+              : fallbackScene.meta.projectId;
+          const projectTitleValue =
+            projectResult.status === "fulfilled"
+              ? projectResult.value.project.title
+              : fallbackScene.meta.title;
+          const projectScene = reconcileSceneWithPresets(
+            projectSceneSource,
+            resolvedMaterialPresets,
+            resolvedShapePresets
+          );
+          projectScene.meta.projectId = projectIdValue;
+
+          setProjectIdentity(projectIdValue, projectTitleValue);
           hydrate(projectScene);
 
-          const draft = await loadDraft(project.project.id);
-          const loadedDraft = Boolean(draft);
+          let loadedDraft = false;
+          let draftFailure: string | null = null;
 
-          if (draft) {
-            const draftScene = reconcileSceneWithPresets(draft, resolvedMaterialPresets, resolvedShapePresets);
-            draftScene.meta.projectId = project.project.id;
-            hydrate(draftScene);
+          if (projectResult.status === "fulfilled") {
+            try {
+              const draft = await loadDraft(projectIdValue);
+
+              if (draft) {
+                const draftScene = reconcileSceneWithPresets(draft, resolvedMaterialPresets, resolvedShapePresets);
+                draftScene.meta.projectId = projectIdValue;
+                hydrate(draftScene);
+                loadedDraft = true;
+              }
+            } catch (error) {
+              console.error(error);
+              draftFailure = "Failed to load local draft";
+              await clearDraft(projectIdValue);
+            }
           }
 
-          setStatus(
-            getEditorBootstrapStatus({
-              loadedDraft,
-              materialPresetCount: resolvedMaterialPresets.length,
-              materialPresetError: materialPresetFailure,
-              shapePresetCount: resolvedShapePresets.length,
-              shapePresetError: shapePresetFailure
-            })
-          );
+          const bootstrapStatus = getEditorBootstrapStatus({
+            loadedDraft,
+            materialPresetCount: resolvedMaterialPresets.length,
+            materialPresetError: materialPresetFailure,
+            shapePresetCount: resolvedShapePresets.length,
+            shapePresetError: shapePresetFailure
+          });
+          const projectFailure =
+            projectResult.status === "rejected"
+              ? "Failed to create project. Loaded local fallback scene"
+              : null;
+
+          setStatus([projectFailure, draftFailure, bootstrapStatus !== "Ready" ? bootstrapStatus : null].filter(Boolean).join(". ") || "Ready");
         } catch (error) {
           console.error(error);
+          if (!materialPresetFailure) {
+            setMaterialPresetError("Failed to load material presets");
+          }
+          if (!shapePresetFailure) {
+            setShapePresetError("Failed to load shape presets");
+          }
           setStatus("Failed to initialize project");
         }
       })();
