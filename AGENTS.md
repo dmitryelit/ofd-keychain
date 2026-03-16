@@ -28,6 +28,7 @@
 - Prefer pure functions for timeline evaluation, serialization, and scene migration logic.
 - Use Figma MCP as the source of truth for design implementation when a Figma file or node is provided. Match sizing, spacing, panel placement, and component visuals as closely as possible instead of approximating.
 - Reuse the typed preset catalogs in `apps/web/assets/catalog.ts` and the preset asset services/routes instead of hardcoding material or shape option lists in UI components.
+- Material presets sourced from external libraries should be checked into `apps/web/assets/materials/*` as local archives or extracted files; keep the original source files such as `MTLX` next to the runtime texture maps when available.
 - When changing materials, backgrounds, or shape presets, update both the editor experience and any viewer/runtime behavior that depends on the same serialized scene data.
 
 ## Product Boundaries
@@ -41,9 +42,12 @@
 - `viewport.background` is a discriminated union that supports `{ mode: "gradient", topColor, bottomColor }`, `{ mode: "solid", color }`, and `{ mode: "transparent" }`.
 - `MaterialDefinition` currently includes `opacity` and supports `maps.metalness` in addition to existing texture maps.
 - Shape and material presets are served from `apps/web` through allowlisted asset routes under `/api/assets/*`.
+- Preset asset resolution in `apps/web` must be anchored to the module location, not `process.cwd()`, so material/shape catalogs keep working across `pnpm dev`, monorepo runs, builds, and tests.
+- The current material catalog is intentionally narrowed to a GPUOpen Matlib `Copper Satin` MaterialX preset stored under `apps/web/assets/materials/copper-satin`, and new or reconciled scenes should land on that preset by default.
 - New projects should be seeded from the preset asset services so default materials include preset map URLs and default shapes include preset SVG source URLs.
 - The desktop editor opens with the floating panels collapsed into preview chips, while the desktop stage itself runs an editor-only idle spin on the keychain object.
 - The editor currently supports live material presets, shape presets, SVG upload, gradient/solid/transparent background editing, and `Depth / Bevel / Ring` controls.
+- When preset collections fail or come back empty, the desktop editor should still open the project and surface explicit material/shape preset status instead of silently showing blank panels.
 
 ## Testing Requirements
 - Add or update automated tests for:

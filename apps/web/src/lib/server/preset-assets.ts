@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import type { MaterialDefinition } from "@ofd-keychain/scene-core";
-import { MATERIAL_PRESET_CATALOG, SHAPE_PRESET_CATALOG } from "../../../assets/catalog";
+import {
+  MATERIAL_PRESET_CATALOG,
+  SHAPE_PRESET_CATALOG,
+  type MaterialPresetMapCatalogEntry
+} from "../../../assets/catalog";
 import { normalizeSvgMarkup } from "../utils/svg";
 
 export interface MaterialPresetPayload {
@@ -20,13 +25,22 @@ export interface ShapePresetPayload {
   };
 }
 
-const ASSET_ROOT = path.join(process.cwd(), "assets");
+const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+const ASSET_ROOT = path.resolve(MODULE_DIRECTORY, "../../../assets");
+function splitAssetParts(parts: string[]) {
+  return parts.flatMap((part) => part.split("/").filter(Boolean));
+}
+
 const ALLOWLISTED_ASSET_PATHS = new Set(
   [
     ...MATERIAL_PRESET_CATALOG.flatMap((preset) => [
       ["materials", preset.directory, preset.previewFile],
-      ...Object.values(preset.maps).map((fileName) => ["materials", preset.directory, fileName])
-    ]),
+      ...Object.values(preset.maps).map((entry) => [
+        "materials",
+        preset.directory,
+        typeof entry === "string" ? entry : entry.fileName
+      ])
+    ]).map((parts) => splitAssetParts(parts)),
     ...SHAPE_PRESET_CATALOG.map((preset) => ["shapes", preset.fileName])
   ].map((parts) => parts.join("/"))
 );
@@ -36,11 +50,15 @@ function encodeAssetPath(parts: string[]) {
 }
 
 function toAssetUrl(parts: string[]) {
-  return `/api/assets/files/${encodeAssetPath(parts)}`;
+  return `/api/assets/files/${encodeAssetPath(splitAssetParts(parts))}`;
+}
+
+export function getPresetAssetRoot() {
+  return ASSET_ROOT;
 }
 
 function resolveAssetPath(parts: string[]) {
-  const normalizedParts = parts.filter(Boolean);
+  const normalizedParts = splitAssetParts(parts);
   const normalizedKey = normalizedParts.join("/");
 
   if (!ALLOWLISTED_ASSET_PATHS.has(normalizedKey)) {
@@ -61,6 +79,21 @@ export function getPresetAssetFile(assetPath: string[]) {
   return resolveAssetPath(assetPath);
 }
 
+function toTextureMapDefinition(
+  directory: string,
+  entry: string | MaterialPresetMapCatalogEntry
+): MaterialDefinition["maps"][keyof MaterialDefinition["maps"]] {
+  const definition = typeof entry === "string" ? { fileName: entry } : entry;
+
+  return {
+    url: toAssetUrl(["materials", directory, definition.fileName]),
+    tiling: definition.tiling ?? [1, 1],
+    offset: definition.offset ?? [0, 0],
+    rotation: definition.rotation ?? 0,
+    opacity: definition.opacity ?? 1
+  };
+}
+
 export async function listMaterialPresets(): Promise<MaterialPresetPayload[]> {
   return MATERIAL_PRESET_CATALOG.map((preset) => ({
     id: preset.id,
@@ -78,15 +111,9 @@ export async function listMaterialPresets(): Promise<MaterialPresetPayload[]> {
       emissive: "#000000",
       normalScale: preset.appearance.normalScale,
       maps: Object.fromEntries(
-        Object.entries(preset.maps).map(([key, fileName]) => [
+        Object.entries(preset.maps).map(([key, entry]) => [
           key,
-          {
-            url: toAssetUrl(["materials", preset.directory, fileName as string]),
-            tiling: [1, 1],
-            offset: [0, 0],
-            rotation: 0,
-            opacity: 1
-          }
+          toTextureMapDefinition(preset.directory, entry)
         ])
       )
     }

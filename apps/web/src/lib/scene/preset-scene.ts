@@ -84,10 +84,18 @@ export function reconcileSceneWithPresets(
   shapePresets: ShapePresetLike[]
 ): SceneDocument {
   const nextScene = parseSceneDocument(structuredClone(scene));
+  const fallbackMaterial = materialPresets[0]?.material;
   const presetMaterialById = new Map(materialPresets.map((preset) => [preset.material.id, preset.material]));
   const presetShapeById = new Map(shapePresets.map((preset) => [preset.asset.id, preset.asset]));
+  const primaryObject = nextScene.objects[0];
+  const shouldReplaceActiveMaterial =
+    Boolean(fallbackMaterial) && Boolean(primaryObject?.materialId) && !presetMaterialById.has(primaryObject.materialId);
 
   nextScene.materials = nextScene.materials.map((material) => {
+    if (shouldReplaceActiveMaterial && fallbackMaterial) {
+      return cloneMaterial(fallbackMaterial);
+    }
+
     const preset = presetMaterialById.get(material.id);
 
     if (!preset || hasRenderableMaps(material)) {
@@ -105,6 +113,10 @@ export function reconcileSceneWithPresets(
       normalScale: material.normalScale
     };
   });
+
+  if (shouldReplaceActiveMaterial && fallbackMaterial && primaryObject) {
+    primaryObject.materialId = fallbackMaterial.id;
+  }
 
   nextScene.assets = nextScene.assets.map((asset) => {
     const preset = presetShapeById.get(asset.id);

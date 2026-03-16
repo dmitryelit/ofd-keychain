@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { appendRingHoleToShapes } from "@ofd-keychain/render-engine";
-import type { ShapeAsset } from "@ofd-keychain/scene-core";
+import { appendRingHoleToShapes, getKeychainMeshRevision } from "@ofd-keychain/render-engine";
+import { createDefaultSceneDocument, type ShapeAsset } from "@ofd-keychain/scene-core";
 
 const EXTRUDE_DEFAULTS: ShapeAsset["extrudeDefaults"] = {
   depth: 4,
@@ -54,5 +54,42 @@ describe("render-engine SVG handling", () => {
 
     expect(shapes).toHaveLength(1);
     expect(shapes[0]?.holes).toHaveLength(2);
+  });
+
+  it("changes the mesh revision when presets change", () => {
+    const scene = createDefaultSceneDocument("demo");
+    const baseRevision = getKeychainMeshRevision(scene);
+    const materialScene = structuredClone(scene);
+    const shapeScene = structuredClone(scene);
+
+    if (materialScene.objects[0] && materialScene.materials[0]) {
+      materialScene.objects[0].materialId = "mat-copper-satin";
+      materialScene.materials[0] = {
+        ...materialScene.materials[0],
+        id: "mat-copper-satin",
+        maps: {
+          ...materialScene.materials[0].maps,
+          normal: {
+            url: "/api/assets/files/materials/copper-satin/textures/Copper_Satin_normal.png",
+            tiling: [5, 5],
+            offset: [0, 0],
+            rotation: 0,
+            opacity: 1
+          }
+        }
+      };
+    }
+
+    if (shapeScene.objects[0] && shapeScene.assets[0]) {
+      shapeScene.objects[0].assetId = "shape-tree";
+      shapeScene.assets[0] = {
+        ...shapeScene.assets[0],
+        id: "shape-tree",
+        sourceSvgUrl: "/api/assets/files/shapes/tree.svg"
+      };
+    }
+
+    expect(getKeychainMeshRevision(materialScene)).not.toBe(baseRevision);
+    expect(getKeychainMeshRevision(shapeScene)).not.toBe(baseRevision);
   });
 });

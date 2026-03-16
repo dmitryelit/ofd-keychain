@@ -177,6 +177,42 @@ export function createExtrudedGeometry(asset: ShapeAsset, options: ExtrudeOption
   return geometry;
 }
 
+function getMaterialMapRevision(material: MaterialDefinition | undefined) {
+  const maps = material?.maps ?? {};
+
+  return ["baseColor", "normal", "roughness", "metalness"]
+    .map((key) => {
+      const entry = maps[key as keyof typeof maps];
+      return entry ? `${key}:${entry.url}` : `${key}:none`;
+    })
+    .join("|");
+}
+
+export function getKeychainMeshRevision(scene: SceneDocument) {
+  const keychainObject = scene.objects[0];
+
+  if (!keychainObject) {
+    return "mesh:empty";
+  }
+
+  const asset = scene.assets.find((entry) => entry.id === keychainObject.assetId);
+  const material = scene.materials.find((entry) => entry.id === keychainObject.materialId);
+
+  return [
+    `object:${keychainObject.id}`,
+    `asset:${keychainObject.assetId}`,
+    `assetSource:${asset?.sourceSvgUrl ?? "inline"}`,
+    `material:${keychainObject.materialId}`,
+    `materialMaps:${getMaterialMapRevision(material)}`,
+    `depth:${keychainObject.params.depth}`,
+    `bevelEnabled:${keychainObject.params.bevelEnabled}`,
+    `bevelSegments:${keychainObject.params.bevelSegments}`,
+    `bevelSize:${keychainObject.params.bevelSize}`,
+    `bevelThickness:${keychainObject.params.bevelThickness}`,
+    `ringHoleRadius:${keychainObject.params.ringHoleRadius}`
+  ].join("|");
+}
+
 function toVector3(value: ScalarOrVector | string | null, fallback: [number, number, number]) {
   return Array.isArray(value) && value.length === 3 ? value : fallback;
 }
@@ -445,6 +481,7 @@ function SceneRuntime({
   const cameraRef = camera as PerspectiveCamera;
   const fallbackTarget = useMemo(() => new Vector3(...scene.cameraRig.target), [scene.cameraRig.target]);
   const keychainObject = scene.objects[0];
+  const meshRevision = getKeychainMeshRevision(scene);
 
   useFrame(({ clock }) => {
     const effectiveTimeMs = autoplayTimeline ? clock.getElapsedTime() * 1000 : playbackTimeMs;
@@ -494,7 +531,7 @@ function SceneRuntime({
     <>
       <SceneLights scene={scene} />
       {scene.environment.hdriUrl ? <Environment files={scene.environment.hdriUrl} background={false} /> : null}
-      <KeychainMesh scene={scene} meshRef={meshRef} />
+      <KeychainMesh key={meshRevision} scene={scene} meshRef={meshRef} />
       <OrbitControls
         ref={controlsRef}
         enableDamping

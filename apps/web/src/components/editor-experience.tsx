@@ -5,6 +5,7 @@ import { KeychainCanvas } from "@ofd-keychain/render-engine";
 import type { MaterialDefinition, ShapeAsset, ViewportBackground } from "@ofd-keychain/scene-core";
 import { useEffect, useRef, useState, useTransition, type ChangeEvent, type ReactNode } from "react";
 import { loadDraft, saveDraft } from "@/lib/storage/drafts";
+import { getEditorBootstrapStatus, getPresetCollectionMessage } from "@/lib/editor/preset-status";
 import { reconcileSceneWithPresets } from "@/lib/scene/preset-scene";
 import { useEditorStore, type EditorPanel, type EditorState } from "@/lib/state/editor-store";
 import { trackEvent } from "@/lib/telemetry";
@@ -150,6 +151,14 @@ function Panel({
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return <p className="text-center text-[14px] tracking-[-0.05em] text-[#808080]">{children}</p>;
+}
+
+function PresetMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-[12px] bg-black px-3 py-2 text-center text-[13px] tracking-[-0.04em] text-white/70">
+      {children}
+    </div>
+  );
 }
 
 function MaterialTile({
@@ -375,6 +384,8 @@ export function EditorExperience() {
   const [isRecording, setIsRecording] = useState(false);
   const [materialPresets, setMaterialPresets] = useState<MaterialPreset[]>([]);
   const [shapePresets, setShapePresets] = useState<ShapePreset[]>([]);
+  const [materialPresetError, setMaterialPresetError] = useState<string | null>(null);
+  const [shapePresetError, setShapePresetError] = useState<string | null>(null);
   const initialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -404,7 +415,7 @@ export function EditorExperience() {
     startTransition(() => {
       void (async () => {
         try {
-          const [project, fetchedMaterialPresets, fetchedShapePresets] = await Promise.all([
+          const [projectResult, materialPresetResult, shapePresetResult] = await Promise.allSettled([
             fetchJson<{
               project: { id: string; title: string; scene: typeof scene };
             }>("/api/projects", { method: "POST" }),
@@ -412,24 +423,52 @@ export function EditorExperience() {
             fetchJson<{ presets: ShapePreset[] }>("/api/assets/shape-presets")
           ]);
 
-          const projectScene = reconcileSceneWithPresets(project.project.scene, fetchedMaterialPresets.presets, fetchedShapePresets.presets);
+          if (projectResult.status === "rejected") {
+            throw projectResult.reason;
+          }
+
+          const materialPresetFailure =
+            materialPresetResult.status === "rejected" ? "Failed to load material presets" : null;
+          const shapePresetFailure =
+            shapePresetResult.status === "rejected" ? "Failed to load shape presets" : null;
+          const resolvedMaterialPresets =
+            materialPresetResult.status === "fulfilled" ? materialPresetResult.value.presets : [];
+          const resolvedShapePresets =
+            shapePresetResult.status === "fulfilled" ? shapePresetResult.value.presets : [];
+
+          const project = projectResult.value;
+          const projectScene = reconcileSceneWithPresets(
+            project.project.scene,
+            resolvedMaterialPresets,
+            resolvedShapePresets
+          );
           projectScene.meta.projectId = project.project.id;
 
-          setMaterialPresets(fetchedMaterialPresets.presets);
-          setShapePresets(fetchedShapePresets.presets);
+          setMaterialPresets(resolvedMaterialPresets);
+          setShapePresets(resolvedShapePresets);
+          setMaterialPresetError(materialPresetFailure);
+          setShapePresetError(shapePresetFailure);
           setProjectIdentity(project.project.id, project.project.title);
           hydrate(projectScene);
 
           const draft = await loadDraft(project.project.id);
+          const loadedDraft = Boolean(draft);
 
           if (draft) {
-            const draftScene = reconcileSceneWithPresets(draft, fetchedMaterialPresets.presets, fetchedShapePresets.presets);
+            const draftScene = reconcileSceneWithPresets(draft, resolvedMaterialPresets, resolvedShapePresets);
             draftScene.meta.projectId = project.project.id;
             hydrate(draftScene);
-            setStatus("Loaded local draft");
-          } else {
-            setStatus("Ready");
           }
+
+          setStatus(
+            getEditorBootstrapStatus({
+              loadedDraft,
+              materialPresetCount: resolvedMaterialPresets.length,
+              materialPresetError: materialPresetFailure,
+              shapePresetCount: resolvedShapePresets.length,
+              shapePresetError: shapePresetFailure
+            })
+          );
         } catch (error) {
           console.error(error);
           setStatus("Failed to initialize project");
@@ -557,6 +596,8 @@ export function EditorExperience() {
   const background = scene.viewport.background;
   const gradientBackground = background.mode === "gradient" ? background : null;
   const solidBackground = background.mode === "solid" ? background : null;
+  const materialPresetMessage = getPresetCollectionMessage("material", materialPresets.length, materialPresetError, isPending);
+  const shapePresetMessage = getPresetCollectionMessage("shape", shapePresets.length, shapePresetError, isPending);
   const stageStyle = createStageBackgroundStyle(background);
   const showBackgroundOverlays = background.mode !== "transparent";
 
@@ -600,17 +641,21 @@ export function EditorExperience() {
             <Panel title="Material" widthClass="w-[180px]" onClose={() => togglePanel("material")}>
               <div className="flex flex-col items-center gap-4">
                 <SectionLabel>Basics</SectionLabel>
-                <div className="grid w-full grid-cols-2 gap-1">
-                  {materialPresets.map((preset) => (
-                    <MaterialTile
-                      key={preset.id}
-                      active={preset.material.id === material?.id}
-                      src={preset.previewUrl}
-                      alt={preset.name}
-                      onClick={() => applyMaterialPreset(preset.material)}
-                    />
-                  ))}
-                </div>
+                {materialPresetMessage ? (
+                  <PresetMessage>{materialPresetMessage}</PresetMessage>
+                ) : (
+                  <div className="grid w-full grid-cols-2 gap-1">
+                    {materialPresets.map((preset) => (
+                      <MaterialTile
+                        key={preset.id}
+                        active={preset.material.id === material?.id}
+                        src={preset.previewUrl}
+                        alt={preset.name}
+                        onClick={() => applyMaterialPreset(preset.material)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </Panel>
 
@@ -715,11 +760,15 @@ export function EditorExperience() {
 
               <div className="flex w-full flex-col items-center gap-4">
                 <SectionLabel>HDRIs</SectionLabel>
-                <div className="grid w-full grid-cols-2 gap-1">
-                  {materialPresets.map((preset) => (
-                    <MaterialTile key={`scene-${preset.id}`} active={false} src={preset.previewUrl} alt={preset.name} onClick={() => undefined} />
-                  ))}
-                </div>
+                {materialPresetMessage ? (
+                  <PresetMessage>{materialPresetMessage}</PresetMessage>
+                ) : (
+                  <div className="grid w-full grid-cols-2 gap-1">
+                    {materialPresets.map((preset) => (
+                      <MaterialTile key={`scene-${preset.id}`} active={false} src={preset.previewUrl} alt={preset.name} onClick={() => undefined} />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </Panel>
@@ -751,11 +800,15 @@ export function EditorExperience() {
               </button>
               <input ref={fileInputRef} type="file" accept=".svg,image/svg+xml" hidden onChange={handleSvgFileChange} />
               <SectionLabel>Basics</SectionLabel>
-              <div className="grid w-full grid-cols-2 gap-1">
-                {shapePresets.map((preset) => (
-                  <ShapeTile key={preset.id} active={preset.asset.id === scene.assets[0]?.id} asset={preset.asset} onClick={() => applyShapePreset(preset.asset)} />
-                ))}
-              </div>
+              {shapePresetMessage ? (
+                <PresetMessage>{shapePresetMessage}</PresetMessage>
+              ) : (
+                <div className="grid w-full grid-cols-2 gap-1">
+                  {shapePresets.map((preset) => (
+                    <ShapeTile key={preset.id} active={preset.asset.id === scene.assets[0]?.id} asset={preset.asset} onClick={() => applyShapePreset(preset.asset)} />
+                  ))}
+                </div>
+              )}
             </div>
           </Panel>
         ) : null}

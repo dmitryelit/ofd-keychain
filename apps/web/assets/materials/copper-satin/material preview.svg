@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <radialGradient id="copperGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(44 36) rotate(48.5763) scale(72.8697)">
+      <stop stop-color="#E3B18A" />
+      <stop offset="0.42" stop-color="#B86E49" />
+      <stop offset="0.72" stop-color="#7B3D24" />
+      <stop offset="1" stop-color="#2E140C" />
+    </radialGradient>
+    <linearGradient id="copperSheen" x1="18" y1="22" x2="108" y2="106" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8E2D0" stop-opacity="0.95" />
+      <stop offset="0.18" stop-color="#E2AF8C" stop-opacity="0.52" />
+      <stop offset="0.48" stop-color="#8A4A2D" stop-opacity="0.08" />
+      <stop offset="0.82" stop-color="#F7D8C2" stop-opacity="0.4" />
+      <stop offset="1" stop-color="#4C2315" stop-opacity="0.18" />
+    </linearGradient>
+    <pattern id="satinLines" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(33)">
+      <path d="M0 0H10" stroke="#FFF5EC" stroke-opacity="0.08" stroke-width="1.2" />
+      <path d="M0 5H10" stroke="#2D120B" stroke-opacity="0.22" stroke-width="1" />
+    </pattern>
+  </defs>
+  <rect width="128" height="128" rx="64" fill="url(#copperGlow)" />
+  <rect x="10" y="10" width="108" height="108" rx="54" fill="url(#copperSheen)" />
+  <rect width="128" height="128" rx="64" fill="url(#satinLines)" />
+  <circle cx="43" cy="37" r="24" fill="#FFE9D8" fill-opacity="0.16" />
+  <ellipse cx="86" cy="92" rx="34" ry="19" fill="#1D0B06" fill-opacity="0.24" />
+</svg>
