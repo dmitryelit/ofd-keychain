@@ -48,6 +48,7 @@
 - The desktop editor opens with the floating panels collapsed into preview chips, while the desktop stage itself runs an editor-only idle spin on the keychain object.
 - The editor currently supports live material presets, shape presets, SVG upload, gradient/solid/transparent background editing, and `Depth / Bevel / Ring` controls.
 - When preset collections fail or come back empty, the desktop editor should still open the project and surface explicit material/shape preset status instead of silently showing blank panels.
+- Editor bootstrap should treat project creation, preset loading, and local draft hydration as separate failure domains: if `/api/projects` or the stored draft fails, the UI should still keep material/shape presets visible and fall back to a preset-seeded local scene instead of collapsing to an empty state.
 
 ## Testing Requirements
 - Add or update automated tests for:
@@ -63,6 +64,7 @@
 ## Tooling Standards
 - Preferred package manager: `pnpm` via Corepack.
 - Run `corepack pnpm lint`, `corepack pnpm test`, and `corepack pnpm build` before closing substantial work.
+- Do not run `next dev` and `next build` against `apps/web` at the same time against the same `.next` directory; this can corrupt build artifacts locally and produce misleading `500` errors on routes such as `/api/projects`.
 - Keep shared config in `packages/config`.
 - Use `zod` for runtime validation, `Prisma` for published project persistence, and `Zustand` for editor state.
 
